@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Bikes - BikeRental</title>
+    <link rel="stylesheet" href="2browse.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                    <circle cx="8" cy="22" r="6" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                    <circle cx="22" cy="22" r="6" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                    <path d="M8 22L15 10L22 22" stroke="#00D4FF" stroke-width="2"/>
+                    <path d="M12 14H18" stroke="#00D4FF" stroke-width="2"/>
+                </svg>
+                <span class="logo-text">BikeRental</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="user_home.html">Home</a></li>
+                <li><a href="2browse.html" class="active">Browse Bikes</a></li>
+                <li><a href="ahowitworks.html">How It Works</a></li>
+                <li><a href="apricing.html">Pricing</a></li>
+                <li><a href="contact.html">Contact</a></li>
+                <li><a href="my_rental.html">My Rental</a></li>
+                <li><a href="ahome.html">Profile</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>Browse Our Bikes</h1>
+        <p>Find the perfect bike for your next adventure</p>
+    </section>
+
+    <section class="filter-section">
+        <div class="container">
+            <div class="filter-tabs">
+                <button class="tab-btn active" data-category="all">All Bikes</button>
+                <button class="tab-btn" data-category="city">City</button>
+                <button class="tab-btn" data-category="mountain">Mountain</button>
+                <button class="tab-btn" data-category="electric">Electric</button>
+                <button class="tab-btn" data-category="kids">Kids</button>
+                <button class="tab-btn" data-category="premium">Premium</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="bikes-section">
+        <div class="container">
+            <div class="bikes-grid" id="bikesGrid"></div>
+        </div>
+    </section>
+
+    <!-- Rental Modal -->
+    <div class="modal-overlay" id="rentalModal">
+        <div class="modal-content">
+            <button class="modal-close" id="closeModal">&times;</button>
+            
+            <div class="modal-grid">
+                <!-- Left side - Form -->
+                <div class="modal-form">
+                    <h2>Complete Your Rental</h2>
+                    <p class="form-subtitle">Fill in your details to rent this bike</p>
+
+                    <div class="form-group">
+                        <label for="fullName">Full Name <span class="required">*</span></label>
+                        <input type="text" id="fullName" placeholder="Juan Dela Cruz" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="required">*</span></label>
+                        <input type="email" id="email" placeholder="your.email@example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="phone" placeholder="+63 9" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="duration">Rental Duration (Hours) <span class="required">*</span></label>
+                        <div class="duration-control">
+                            <button type="button" class="duration-btn" id="decreaseBtn">−</button>
+                            <input type="number" id="duration" value="3" min="1" max="24" readonly>
+                            <button type="button" class="duration-btn" id="increaseBtn">+</button>
+                        </div>
+                        <small class="form-hint">Maximum 24 hours per rental</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pickupDate">Pick-up Date <span class="required">*</span></label>
+                        <input type="date" id="pickupDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pickupTime">Pick-up Time <span class="required">*</span></label>
+                        <input type="time" id="pickupTime" required>
+                    </div>
+
+                    <button type="button" class="submit-btn" id="confirmBtn">Confirm Rental</button>
+                </div>
+
+                <!-- Right side - Summary -->
+                <div class="rental-summary">
+                    <h3>Rental Summary</h3>
+                    
+                    <div class="bike-preview">
+                        <img id="modalBikeImage" src="" alt="Bike">
+                    </div>
+
+                    <div class="bike-details">
+                        <div class="bike-name" id="modalBikeName">Loading...</div>
+                        <div class="bike-category" id="modalBikeCategory">City Bike</div>
+                    </div>
+
+                    <div class="summary-divider"></div>
+
+                    <div class="summary-row">
+                        <span class="summary-label">Hourly Rate</span>
+                        <span class="summary-value" id="hourlyRate">₱50.00/hour</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span class="summary-label">Duration</span>
+                        <span class="summary-value" id="durationDisplay">3 hour(s)</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span class="summary-label">Subtotal</span>
+                        <span class="summary-value" id="subtotal">₱150.00</span>
+                    </div>
+
+                    <div class="summary-divider"></div>
+
+                    <div class="summary-row total-row">
+                        <span class="summary-label">Total</span>
+                        <span class="summary-value total-amount" id="total">₱150.00</span>
+                    </div>
+
+                    <div class="info-box">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 0C4.5 0 0 4.5 0 10C0 15.5 4.5 20 10 20C15.5 20 20 15.5 20 10C20 4.5 15.5 0 10 0ZM11 15H9V9H11V15ZM11 7H9V5H11V7Z"/>
+                        </svg>
+                        <div>
+                            <strong>Important Information:</strong>
+                            <p>Please bring a valid ID and arrive 15 minutes before your scheduled pick-up time.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="bikes-data.js"></script>
+</body>
+</html>

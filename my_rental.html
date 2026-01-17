@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Rentals - BikeRental</title>
+    <link rel="stylesheet" href="my_rental.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="17" r="3" stroke="#22d3ee" stroke-width="2"/>
+                    <circle cx="17" cy="17" r="3" stroke="#22d3ee" stroke-width="2"/>
+                    <path d="M12 4V12M12 12L7 17M12 12L17 17" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span class="logo-text">BikeRental</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="ahome.html">Home</a></li>
+                <li><a href="2browse.html">Browse Bikes</a></li>
+                <li><a href="ahowitworks.html">How It Works</a></li>
+                <li><a href="apricing.html">Pricing</a></li>
+                <li><a href="contact.html">Contact</a></li>
+                <li><a href="my_rental.html" class="active">My Rentals</a></li>
+                <li><a href="ahome.html">Profile</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">My Rental History</h1>
+            <p class="hero-subtitle">Track your rides and manage active rentals</p>
+        </div>
+    </section>
+
+    <!-- Active Rental Section -->
+    <section class="active-rental-section">
+        <div class="container">
+            <h2 class="section-title">Active Rental</h2>
+            
+            <div class="active-rental-card">
+                <div class="rental-card-content">
+                    <div class="bike-image-container">
+                        <svg class="bike-image" viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Mountain Bike Illustration -->
+                            <circle cx="50" cy="110" r="25" stroke="#333" stroke-width="3" fill="none"/>
+                            <circle cx="150" cy="110" r="25" stroke="#333" stroke-width="3" fill="none"/>
+                            <circle cx="50" cy="110" r="3" fill="#333"/>
+                            <circle cx="150" cy="110" r="3" fill="#333"/>
+                            <path d="M50 110 L80 80 L100 50 L120 80 L150 110" stroke="#333" stroke-width="3" fill="none"/>
+                            <path d="M80 80 L100 110" stroke="#333" stroke-width="3"/>
+                            <path d="M100 50 L90 50 L85 60" stroke="#333" stroke-width="3" fill="none"/>
+                            <rect x="85" y="40" width="30" height="15" rx="3" fill="#666"/>
+                            <path d="M100 110 L80 110 L70 100" stroke="#333" stroke-width="2" fill="none"/>
+                            <path d="M100 110 L120 110 L130 100" stroke="#333" stroke-width="2" fill="none"/>
+                        </svg>
+                    </div>
+                    
+                    <div class="bike-details">
+                        <h3 class="bike-name">Mountain Pro X1</h3>
+                        <p class="bike-type">Mountain Bike</p>
+                        <p class="rental-info">Started: 2025-01-15 10:30 AM</p>
+                        <p class="rental-info">Location: Downtown Station A</p>
+                    </div>
+
+                    <div class="timer-section">
+                        <p class="timer-label">Remaining Time</p>
+                        <div class="timer">2:45</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <p class="time-used">1:25 of 4 hours used</p>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn-extend">Extend Rental</button>
+                        <button class="btn-end">End Rental</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper cyan">
+                        <svg class="stat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="7" cy="17" r="3" stroke="#22d3ee" stroke-width="2"/>
+                            <circle cx="17" cy="17" r="3" stroke="#22d3ee" stroke-width="2"/>
+                            <path d="M12 4V12M12 12L7 17M12 12L17 17" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="trend-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 17L17 7M17 7H7M17 7V17" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="stat-number">5</div>
+                    <div class="stat-label">Total Rides</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper blue">
+                        <svg class="stat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="2"/>
+                            <path d="M12 6V12L16 14" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="trend-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 17L17 7M17 7H7M17 7V17" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="stat-number">14</div>
+                    <div class="stat-label">Total Hours</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper purple">
+                        <svg class="stat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" stroke="#a855f7" stroke-width="2"/>
+                            <path d="M12 6V12M12 12H16" stroke="#a855f7" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="trend-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 17L17 7M17 7H7M17 7V17" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="stat-number">₱700</div>
+                    <div class="stat-label">Total Spent</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Transaction History Section -->
+    <section class="history-section">
+        <div class="container">
+            <div class="history-header">
+                <h2 class="section-title">Transaction History</h2>
+                <div class="history-controls">
+                    <input type="text" class="search-input" placeholder="Search...">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M7 10L12 15M12 15L17 10M12 15V3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="history-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Bike</th>
+                            <th>Duration</th>
+                            <th>Location</th>
+                            <th>Cost</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="date-time">
+                                    <div class="date">2025-01-15</div>
+                                    <div class="time">10:30 AM - 2:30 PM</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <div class="bike-name-table">Mountain Pro X1</div>
+                                    <div class="bike-type-table">Mountain Bike</div>
+                                </div>
+                            </td>
+                            <td>4 hours</td>
+                            <td>Downtown Station A</td>
+                            <td class="cost">₱400</td>
+                            <td><span class="status-badge active">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="date-time">
+                                    <div class="date">2025-01-12</div>
+                                    <div class="time">3:00 PM - 5:00 PM</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <div class="bike-name-table">City Cruiser</div>
+                                    <div class="bike-type-table">City Bike</div>
+                                </div>
+                            </td>
+                            <td>2 hours</td>
+                            <td>Park Station B</td>
+                            <td class="cost">₱100</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="date-time">
+                                    <div class="date">2025-01-08</div>
+                                    <div class="time">8:00 AM - 9:00 AM</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <div class="bike-name-table">City Express</div>
+                                    <div class="bike-type-table">City Bike</div>
+                                </div>
+                            </td>
+                            <td>1 hour</td>
+                            <td>Central Hub</td>
+                            <td class="cost">₱50</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="date-time">
+                                    <div class="date">2025-01-03</div>
+                                    <div class="time">2:00 PM - 4:00 PM</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <div class="bike-name-table">PowerRide Elite</div>
+                                    <div class="bike-type-table">Electric Bike</div>
+                                </div>
+                            </td>
+                            <td>2 hours</td>
+                            <td>West Terminal</td>
+                            <td class="cost">₱400</td>
+                            <td><span class="status-badge cancelled">Cancelled</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="date-time">
+                                    <div class="date">2025-01-01</div>
+                                    <div class="time">1:00 PM - 4:00 PM</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <div class="bike-name-table">Metro Rider</div>
+                                    <div class="bike-type-table">City Bike</div>
+                                </div>
+                            </td>
+                            <td>3 hours</td>
+                            <td>South Plaza</td>
+                            <td class="cost">₱150</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination">
+                <button class="page-btn" disabled>Previous</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <button class="page-btn">Next</button>
+            </div>
+        </div>
+    </section>
+</body>
+</html>

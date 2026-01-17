@@ -1,0 +1,285 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    color: white;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-color: #2f4050;
+}
+
+.page-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Full Screen Background Image */
+.bike-image-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('bgbike.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: brightness(.4);
+    z-index: -2;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #2f4050;
+    opacity: 0.85;
+    z-index: -1;
+}
+
+/* Left Side - Content */
+.image-side {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+}
+
+.content-wrapper {
+    max-width: 500px;
+}
+
+.logo {
+    font-size: 2rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 3rem;
+    font-family: 'Montserrat', sans-serif;
+    color: white;
+}
+
+.logo svg {
+    width: 40px;
+    height: 40px;
+}
+
+.logo-icon {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.image-side h1 {
+    font-size: 4rem;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    font-weight: 800;
+    font-family: 'Montserrat', sans-serif;
+    color: white;
+}
+
+.hero-title-accent {
+    color: #22d3ee;
+}
+
+.image-side p {
+    font-size: 1.1rem;
+    color: #b8c5d6;
+    margin-bottom: 2rem;
+    font-family: 'Poppins', sans-serif;
+    line-height: 1.8;
+}
+
+.feature-list {
+    list-style: none;
+    margin-top: 2rem;
+}
+
+.feature-list li {
+    padding: 0.8rem 0;
+    font-size: 1rem;
+    color: #b8c5d6;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.feature-list li::before {
+    content: '✓';
+    color: #22d3ee;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+/* Right Side - Login Form */
+.login-side {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    padding: 3rem 2.5rem;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.login-card h2 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    font-family: 'Montserrat', sans-serif;
+    color: white;
+}
+
+.login-card .subtitle {
+    color: #b8c5d6;
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    font-family: 'Poppins', sans-serif;
+    color: white;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1rem;
+    transition: all 0.3s;
+    font-family: 'Poppins', sans-serif;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #22d3ee;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.form-group input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.forgot-password {
+    text-align: right;
+    margin-bottom: 1.5rem;
+}
+
+.forgot-password a {
+    color: #22d3ee;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.3s;
+    font-family: 'Poppins', sans-serif;
+}
+
+.forgot-password a:hover {
+    color: #0891b2;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    background: #22d3ee;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Poppins', sans-serif;
+}
+
+.login-btn:hover {
+    background: #0891b2;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(34, 211, 238, 0.3);
+}
+
+.signup-link {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    font-family: 'Poppins', sans-serif;
+    color: #b8c5d6;
+}
+
+.signup-link a {
+    color: #22d3ee;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.signup-link a:hover {
+    color: #0891b2;
+    text-decoration: underline;
+}
+
+@media (max-width: 968px) {
+    .page-wrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .image-side {
+        min-height: 50vh;
+        padding: 2rem;
+    }
+
+    .image-side h1 {
+        font-size: 3rem;
+    }
+
+    .feature-list {
+        display: none;
+    }
+
+    .login-side {
+        padding: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .image-side h1 {
+        font-size: 2.5rem;
+    }
+
+    .login-card {
+        padding: 2rem 1.5rem;
+    }
+}

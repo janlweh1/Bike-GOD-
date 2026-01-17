@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Your Rental - BikeRental</title>
+    <link rel="stylesheet" href="rent_now.css">
+</head>
+<body>
+    <!-- Back Button -->
+    <div class="back-section">
+        <a href="#" class="back-link">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back to Browse Bikes
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Rental Form Section -->
+        <div class="form-section">
+            <div class="form-card">
+                <h1>Complete Your Rental</h1>
+                <p class="form-subtitle">Fill in the details below to rent your bike</p>
+
+                <form id="rentalForm">
+                    <!-- Bike Type Selection -->
+                    <div class="form-group">
+                        <label for="bikeType">Select Bike Type <span class="required">*</span></label>
+                        <select 
+                            id="bikeType" 
+                            name="bikeType" 
+                            required
+                        >
+                            <option value="">Choose a bike type</option>
+                            <option value="city" data-price="50">City Bikes - ₱50/hour</option>
+                            <option value="mountain" data-price="100">Mountain Bikes - ₱100/hour</option>
+                            <option value="electric" data-price="150">Electric Bikes - ₱150/hour</option>
+                            <option value="kids" data-price="50">Kids Bikes - ₱50/hour</option>
+                            <option value="premium" data-price="200">Premium Bikes - ₱200/hour</option>
+                        </select>
+                    </div>
+
+                    <!-- Full Name -->
+                    <div class="form-group">
+                        <label for="fullName">Full Name <span class="required">*</span></label>
+                        <input 
+                            type="text" 
+                            id="fullName" 
+                            name="fullName" 
+                            placeholder="Enter your full name"
+                            required
+                        >
+                    </div>
+
+                    <!-- Email Address -->
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="required">*</span></label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            placeholder="your.email@example.com"
+                            required
+                        >
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="form-group">
+                        <label for="phone">Phone Number <span class="required">*</span></label>
+                        <input 
+                            type="tel" 
+                            id="phone" 
+                            name="phone" 
+                            placeholder="+63 9"
+                            required
+                        >
+                    </div>
+
+                    <!-- Rental Duration -->
+                    <div class="form-group">
+                        <label for="duration">Rental Duration (Hours) <span class="required">*</span></label>
+                        <div class="duration-control">
+                            <button type="button" class="duration-btn" id="decreaseBtn">−</button>
+                            <input 
+                                type="text" 
+                                id="duration" 
+                                name="duration" 
+                                value="1" 
+                                readonly
+                            >
+                            <button type="button" class="duration-btn" id="increaseBtn">+</button>
+                        </div>
+                        <small class="form-hint">Maximum 24 hours per rental</small>
+                    </div>
+
+                    <!-- ID Document Upload -->
+                    <div class="form-group">
+                        <label for="idDocument">ID Document Upload <span class="required">*</span></label>
+                        <div class="upload-area" id="uploadArea">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <circle cx="24" cy="24" r="20" stroke="#00bcd4" stroke-width="2" fill="none"/>
+                                <path d="M24 16V32M16 24H32" stroke="#00bcd4" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <p class="upload-text">Click to upload ID document</p>
+                            <small class="upload-hint">PNG, JPG or PDF (max. 5MB)</small>
+                            <input type="file" id="idDocument" name="idDocument" accept=".png,.jpg,.jpeg,.pdf" hidden>
+                        </div>
+                        <div id="fileName" class="file-name"></div>
+                    </div>
+
+                    <!-- Emergency Contact -->
+                    <div class="form-group">
+                        <label for="emergencyContact">Emergency Contact Number <span class="required">*</span></label>
+                        <input 
+                            type="tel" 
+                            id="emergencyContact" 
+                            name="emergencyContact" 
+                            placeholder="+63 9"
+                            required
+                        >
+                    </div>
+
+                    <!-- Current Address -->
+                    <div class="form-group">
+                        <label for="address">Current Address <span class="required">*</span></label>
+                        <textarea 
+                            id="address" 
+                            name="address" 
+                            rows="3" 
+                            placeholder="Enter your complete address"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <!-- Terms and Conditions -->
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="terms" name="terms" required>
+                            <span class="checkbox-text">
+                                I agree to the <a href="#" class="terms-link">terms and conditions</a> and confirm that all information provided is accurate.
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="submit-btn">
+                        Confirm Rental - ₱<span id="totalPrice">50</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Rental Summary Section -->
+        <div class="summary-section">
+            <div class="summary-card">
+                <h2>Rental Summary</h2>
+                
+                <div class="bike-image-container">
+                    <img src="https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=500" alt="Bike" class="bike-image" id="bikeImage">
+                </div>
+
+                <div class="bike-details">
+                    <h3 id="bikeName">Select a bike type</h3>
+                    <p class="bike-category" id="bikeCategory">-</p>
+                </div>
+
+                <div class="summary-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Hourly Rate</span>
+                        <span class="detail-value">₱<span id="hourlyRate">50.00</span>/hour</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Duration</span>
+                        <span class="detail-value"><span id="summaryDuration">1</span> hour(s)</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Subtotal</span>
+                        <span class="detail-value">₱<span id="subtotalPrice">50.00</span></span>
+                    </div>
+                </div>
+
+                <div class="total-section">
+                    <span class="total-label">Total</span>
+                    <span class="total-value">₱<span id="summaryTotal">50.00</span></span>
+                </div>
+
+                <div class="info-box">
+                    <div class="info-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <circle cx="10" cy="10" r="9" stroke="#00bcd4" stroke-width="2" fill="none"/>
+                            <path d="M10 14V10M10 6H10.01" stroke="#00bcd4" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-title">Important Information:</p>
+                        <ul class="info-list">
+                            <li>Valid ID required for pickup</li>
+                            <li>Helmet included with rental</li>
+                            <li>Late returns subject to additional charges</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Bike data
+        const bikeData = {
+            city: {
+                name: 'City Cruiser',
+                category: 'City Bike',
+                price: 50,
+                image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=500'
+            },
+            mountain: {
+                name: 'Mountain Explorer',
+                category: 'Mountain Bike',
+                price: 100,
+                image: 'https://images.unsplash.com/photo-1576435728678-68d0fbf94e91?w=500'
+            },
+            electric: {
+                name: 'E-Bike Pro',
+                category: 'Electric Bike',
+                price: 150,
+                image: 'https://images.unsplash.com/photo-1591291621164-2c6367723315?w=500'
+            },
+            kids: {
+                name: 'Kids Fun Bike',
+                category: 'Kids Bike',
+                price: 50,
+                image: 'https://images.unsplash.com/photo-1579965342575-16428a7c8565?w=500'
+            },
+            premium: {
+                name: 'Premium Racer',
+                category: 'Premium Bike',
+                price: 200,
+                image: 'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=500'
+            }
+        };
+
+        // Elements
+        const bikeTypeSelect = document.getElementById('bikeType');
+        const durationInput = document.getElementById('duration');
+        const decreaseBtn = document.getElementById('decreaseBtn');
+        const increaseBtn = document.getElementById('increaseBtn');
+        const summaryDuration = document.getElementById('summaryDuration');
+        const subtotalPrice = document.getElementById('subtotalPrice');
+        const summaryTotal = document.getElementById('summaryTotal');
+        const totalPrice = document.getElementById('totalPrice');
+        const hourlyRateDisplay = document.getElementById('hourlyRate');
+        const bikeName = document.getElementById('bikeName');
+        const bikeCategory = document.getElementById('bikeCategory');
+        const bikeImage = document.getElementById('bikeImage');
+
+        let currentHourlyRate = 0;
+
+        // Update price calculation
+        function updatePrice() {
+            const durationValue = durationInput.value.toString().trim();
+            const duration = parseInt(durationValue) || 1;
+            const total = duration * currentHourlyRate;
+            
+            // Update all displays
+            summaryDuration.textContent = duration;
+            subtotalPrice.textContent = total.toFixed(2);
+            summaryTotal.textContent = total.toFixed(2);
+            totalPrice.textContent = total.toFixed(2);
+            
+            // Debug log
+            console.log('Update Price Called:', {
+                duration: duration,
+                hourlyRate: currentHourlyRate,
+                total: total,
+                inputValue: durationInput.value
+            });
+        }
+
+        // Handle bike type change
+        bikeTypeSelect.addEventListener('change', function(e) {
+            const selectedBikeType = e.target.value;
+            
+            console.log('Bike type selected:', selectedBikeType);
+            
+            if (selectedBikeType && bikeData[selectedBikeType]) {
+                const bike = bikeData[selectedBikeType];
+                currentHourlyRate = bike.price;
+                
+                // Update summary card
+                bikeName.textContent = bike.name;
+                bikeCategory.textContent = bike.category;
+                hourlyRateDisplay.textContent = bike.price;
+                bikeImage.src = bike.image;
+                bikeImage.alt = bike.name;
+                
+                console.log('Set hourly rate to:', currentHourlyRate);
+                
+                // Update price immediately
+                updatePrice();
+            } else {
+                // Reset if no bike selected
+                currentHourlyRate = 0;
+                bikeName.textContent = 'Select a bike type';
+                bikeCategory.textContent = '-';
+                hourlyRateDisplay.textContent = '0';
+                updatePrice();
+            }
+        });
+
+        // Duration controls
+        decreaseBtn.addEventListener('click', function() {
+            let currentValue = parseInt(durationInput.value) || 1;
+            if (currentValue > 1) {
+                currentValue = currentValue - 1;
+                durationInput.value = currentValue;
+                console.log('Decreased to:', currentValue);
+                updatePrice();
+            }
+        });
+
+        increaseBtn.addEventListener('click', function() {
+            let currentValue = parseInt(durationInput.value) || 1;
+            if (currentValue < 24) {
+                currentValue = currentValue + 1;
+                durationInput.value = currentValue;
+                console.log('Increased to:', currentValue);
+                updatePrice();
+            }
+        });
+
+        // File upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('idDocument');
+        const fileName = document.getElementById('fileName');
+
+        uploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                
+                if (file.size > maxSize) {
+                    alert('File size must be less than 5MB');
+                    fileInput.value = '';
+                    fileName.textContent = '';
+                    uploadArea.classList.remove('has-file');
+                    return;
+                }
+                
+                fileName.textContent = 'Selected: ' + file.name;
+                uploadArea.classList.add('has-file');
+            }
+        });
+
+        // Form submission
+        document.getElementById('rentalForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate bike type is selected
+            if (!bikeTypeSelect.value) {
+                alert('Please select a bike type');
+                bikeTypeSelect.focus();
+                return;
+            }
+            
+            // Validate file is uploaded
+            if (!fileInput.files.length) {
+                alert('Please upload your ID document');
+                return;
+            }
+            
+            const formData = {
+                bikeType: bikeTypeSelect.options[bikeTypeSelect.selectedIndex].text,
+                fullName: document.getElementById('fullName').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                duration: durationInput.value,
+                emergencyContact: document.getElementById('emergencyContact').value,
+                address: document.getElementById('address').value,
+                totalAmount: summaryTotal.textContent
+            };
+            
+            console.log('Rental confirmed:', formData);
+            alert('Rental confirmed! Total: ₱' + formData.totalAmount + '\n\nThank you for your booking, ' + formData.fullName + '!');
+        });
+
+        // Initialize
+        console.log('Form initialized');
+        updatePrice();
+    </script>
+</body>
+</html>
