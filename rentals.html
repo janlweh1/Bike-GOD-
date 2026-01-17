@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rentals - Bike Rental Management System</title>
+    <link rel="stylesheet" href="rentals.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <h2>BikeRental</h2>
+        </div>
+        <nav class="nav-menu">
+            <a href="dashboard.html" class="nav-item">
+                <span class="icon"><img src="dashboard.png"></i></span>
+                <span>Dashboard</span>
+            </a>
+            <a href="1.html" class="nav-item">
+                <span class="icon"><img src="bike-moving.png"></i></span>
+                <span>Bikes</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="icon"><img src="users.png"></i></span>
+                <span>Customers</span>
+            </a>
+            <a href="rentals.html" class="nav-item active">
+                <span class="icon"><img src="list.png"></i></span>
+                <span>Rentals</span>
+            </a>
+            <a href="payments.html" class="nav-item">
+                <span class="icon"><img src="wallet-arrow.png"></i></span>
+                <span>Payments</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="icon"><img src="settings.png"></i></span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="search-bar">
+                <input type="text" placeholder="Search rentals by ID, customer, or bike...">
+            </div>
+            <div class="header-right">
+                <button class="notification-btn"><img src="bell.png"></i></button>
+                <a href="settings.html" class="user-profile">
+                    <img src="profuser.png" alt="User Profile">
+                    <span>Admin</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Rentals Content -->
+        <div class="rentals-content">
+            <div class="page-header">
+                <h1>Rental Management</h1>  
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="stats-summary">
+                <div class="stat-box active">
+                    <div class="stat-icon"><span class="icon"><img src="list.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>Active Rentals</h3>
+                        <div class="number">45</div>
+                        <span class="stat-trend">Currently ongoing</span>
+                    </div>
+                </div>
+                <div class="stat-box completed">
+                    <div class="stat-icon"><span class="icon"><img src="check-box.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>Completed Today</h3>
+                        <div class="number">12</div>
+                        <span class="stat-trend positive">+3 from yesterday</span>
+                    </div>
+                </div>
+                <div class="stat-box overdue">
+                    <div class="stat-icon"><span class="icon"><img src="danger.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>Overdue</h3>
+                        <div class="number">3</div>
+                        <span class="stat-trend negative">Needs attention</span>
+                    </div>
+                </div>
+                <div class="stat-box revenue">
+                    <div class="stat-icon"><span class="icon"><img src="profit.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>Today's Revenue</h3>
+                        <div class="number">₱12,450</div>
+                        <span class="stat-trend positive">+15%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select>
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="completed">Completed</option>
+                            <option value="overdue">Overdue</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Date Range</label>
+                        <select>
+                            <option value="">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Bike Type</label>
+                        <select>
+                            <option value="">All Types</option>
+                            <option value="mountain">Mountain</option>
+                            <option value="city">City</option>
+                            <option value="road">Road</option>
+                            <option value="electric">Electric</option>
+                            <option value="bmx">BMX</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sort By</label>
+                        <select>
+                            <option value="recent">Most Recent</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="return-date">Return Date</option>
+                            <option value="amount">Highest Amount</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rentals Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>All Rentals</h2>
+                    <div class="table-actions">
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                
+                            </th>
+                            <th>Rental ID</th>
+                            <th>Customer</th>
+                            <th>Bike</th>
+                            <th>Start Date</th>
+                            <th>Return Date</th>
+                            <th>Duration</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="checkbox">
+                            </td>
+                            <td><span class="rental-id">#R1001</span></td>
+                            <td>
+                                <div class="customer-info">
+                                    <div class="customer-avatar">JD</div>
+                                    <div class="customer-name">Juan Dela Cruz</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <span class="bike-model">Mountain Bike Pro</span>
+                                    <span class="bike-id">#B101</span>
+                                </div>
+                            </td>
+                            <td>Nov 26, 2025</td>
+                            <td>Nov 28, 2025</td>
+                            <td>2 days</td>
+                            <td><span class="amount">₱1,000</span></td>
+                            <td><span class="status-badge active">Active</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view" title="View Details" onclick="viewRental(this)"><span class="icon"><img src="view.png"></i></span></button>
+                                    <button class="action-btn complete" title="Complete Rental" onclick="openCompleteModal(this)"><span class="icon"><img src="check (1).png"></i></span></button>
+                                    <button class="action-btn edit" title="Edit" onclick="editRental(this)"><span class="icon"><img src="edit.png"></i></span></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="checkbox">
+                            </td>
+                            <td><span class="rental-id">#R1003</span></td>
+                            <td>
+                                <div class="customer-info">
+                                    <div class="customer-avatar">PG</div>
+                                    <div class="customer-name">Pedro Garcia</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <span class="bike-model">Road Racer</span>
+                                    <span class="bike-id">#B103</span>
+                                </div>
+                            </td>
+                            <td>Nov 24, 2025</td>
+                            <td>Nov 26, 2025</td>
+                            <td>2 days</td>
+                            <td><span class="amount">₱1,200</span></td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view" title="View Details" onclick="viewRental(this)"><span class="icon"><img src="view.png"></i></span></button>
+                                    <button class="action-btn receipt" title="View Receipt"><span class="icon"><img src="shopping.png"></i></span></button>
+                                    <button class="action-btn edit" title="Edit" onclick="editRental(this)"><span class="icon"><img src="edit.png"></i></span></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="overdue-row">
+                            <td>
+                                <input type="checkbox">
+                            </td>
+                            <td><span class="rental-id">#R1005</span></td>
+                            <td>
+                                <div class="customer-info">
+                                    <div class="customer-avatar">CR</div>
+                                    <div class="customer-name">Carlos Ramos</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="bike-info">
+                                    <span class="bike-model">BMX Sport</span>
+                                    <span class="bike-id">#B105</span>
+                                </div>
+                            </td>
+                            <td>Nov 23, 2025</td>
+                            <td>Nov 25, 2025</td>
+                            <td>2 days</td>
+                            <td><span class="amount">₱800</span></td>
+                            <td><span class="status-badge overdue">Overdue</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view" title="View Details" onclick="editRental(this)"><span class="icon"><img src="view.png"></i></span></button>
+                                    <button class="action-btn complete" title="Complete Rental" onclick="openCompleteModal(this)"><span class="icon"><img src="check (1).png"></i></span></button>
+                                    <button class="action-btn contact" title="Contact Customer"><span class="icon"><img src="phone-call.png"></i></span></button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="page-btn" disabled>« Previous</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <button class="page-btn">4</button>
+                    <button class="page-btn">5</button>
+                    <button class="page-btn">Next »</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Rental Details</h2>
+                <button class="close-btn" onclick="closeModal('viewModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-section">
+                    <h3>Rental Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Rental ID</span>
+                            <span class="detail-value" id="viewRentalId"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Status</span>
+                            <span class="detail-value" id="viewStatus"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Start Date</span>
+                            <span class="detail-value" id="viewStartDate"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Return Date</span>
+                            <span class="detail-value" id="viewReturnDate"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Duration</span>
+                            <span class="detail-value" id="viewDuration"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Amount</span>
+                            <span class="detail-value" id="viewAmount"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Customer Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Customer Name</span>
+                            <span class="detail-value" id="viewCustomer"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Contact</span>
+                            <span class="detail-value">+63 912 345 6789</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Bike Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Bike Model</span>
+                            <span class="detail-value" id="viewBikeModel"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Bike ID</span>
+                            <span class="detail-value" id="viewBikeId"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeModal('viewModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Rental</h2>
+                <button class="close-btn" onclick="closeModal('editModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editRowIndex">
+                    
+                    <div class="form-group">
+                        <label>Rental ID</label>
+                        <input type="text" id="editRentalId" readonly>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="editCustomer" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Bike Model</label>
+                            <input type="text" id="editBikeModel" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Bike ID</label>
+                            <input type="text" id="editBikeId" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="editStatus" required>
+                                <option value="active">Active</option>
+                                <option value="completed">Completed</option>
+                                <option value="overdue">Overdue</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" id="editStartDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Return Date</label>
+                            <input type="date" id="editReturnDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Duration</label>
+                            <input type="text" id="editDuration" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="text" id="editAmount" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeModal('editModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Rental Confirmation Modal -->
+    <div id="completeModal" class="modal complete-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Complete Rental</h2>
+                <button class="close-btn" onclick="closeModal('completeModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="complete-icon">
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="complete-message">
+                    <h3>Complete This Rental?</h3>
+                    <p>Confirm that the bike has been returned and the rental is complete.</p>
+                </div>
+                <div class="rental-summary">
+                    <div class="summary-row">
+                        <span>Rental ID:</span>
+                        <span id="completeRentalId"></span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Customer:</span>
+                        <span id="completeCustomer"></span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Bike:</span>
+                        <span id="completeBike"></span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Total Amount:</span>
+                        <span id="completeAmount"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeModal('completeModal')">Cancel</button>
+                <button class="btn btn-success" onclick="confirmComplete()">Complete Rental</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rowToComplete = null;
+
+        // View Rental Details
+        function viewRental(btn) {
+            const row = btn.closest('tr');
+            const cells = row.cells;
+
+            document.getElementById('viewRentalId').textContent = cells[1].textContent;
+            document.getElementById('viewCustomer').textContent = cells[2].querySelector('.customer-name').textContent;
+            document.getElementById('viewBikeModel').textContent = cells[3].querySelector('.bike-model').textContent;
+            document.getElementById('viewBikeId').textContent = cells[3].querySelector('.bike-id').textContent;
+            document.getElementById('viewStartDate').textContent = cells[4].textContent;
+            document.getElementById('viewReturnDate').textContent = cells[5].textContent;
+            document.getElementById('viewDuration').textContent = cells[6].textContent;
+            document.getElementById('viewAmount').textContent = cells[7].textContent;
+            document.getElementById('viewStatus').innerHTML = cells[8].innerHTML;
+
+            openModal('viewModal');
+        }
+
+        // Edit Rental
+        function editRental(btn) {
+            const row = btn.closest('tr');
+            const cells = row.cells;
+            const rowIndex = Array.from(row.parentNode.children).indexOf(row);
+
+            document.getElementById('editRowIndex').value = rowIndex;
+            document.getElementById('editRentalId').value = cells[1].textContent;
+            document.getElementById('editCustomer').value = cells[2].querySelector('.customer-name').textContent;
+            document.getElementById('editBikeModel').value = cells[3].querySelector('.bike-model').textContent;
+            document.getElementById('editBikeId').value = cells[3].querySelector('.bike-id').textContent;
+            document.getElementById('editStartDate').value = '2025-11-26';
+            document.getElementById('editReturnDate').value = '2025-11-28';
+            document.getElementById('editDuration').value = cells[6].textContent;
+            document.getElementById('editAmount').value = cells[7].textContent;
+            
+            const statusBadge = cells[8].querySelector('.status-badge');
+            if (statusBadge.classList.contains('active')) {
+                document.getElementById('editStatus').value = 'active';
+            } else if (statusBadge.classList.contains('completed')) {
+                document.getElementById('editStatus').value = 'completed';
+            } else if (statusBadge.classList.contains('overdue')) {
+                document.getElementById('editStatus').value = 'overdue';
+            }
+
+            openModal('editModal');
+        }
+
+        // Save Edit
+        function saveEdit() {
+            const rowIndex = document.getElementById('editRowIndex').value;
+            const tbody = document.getElementById('rentalTableBody');
+            const row = tbody.children[rowIndex];
+
+            const customer = document.getElementById('editCustomer').value;
+            const bikeModel = document.getElementById('editBikeModel').value;
+            const bikeId = document.getElementById('editBikeId').value;
+            const startDate = document.getElementById('editStartDate').value;
+            const returnDate = document.getElementById('editReturnDate').value;
+            const duration = document.getElementById('editDuration').value;
+            const amount = document.getElementById('editAmount').value;
+            const status = document.getElementById('editStatus').value;
+
+            // Update row
+            row.cells[2].querySelector('.customer-name').textContent = customer;
+            row.cells[3].querySelector('.bike-model').textContent = bikeModel;
+            row.cells[3].querySelector('.bike-id').textContent = bikeId;
+            row.cells[4].textContent = new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            row.cells[5].textContent = new Date(returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            row.cells[6].textContent = duration;
+            row.cells[7].querySelector('.amount').textContent = amount;
+
+            // Update status badge
+            const statusBadge = row.cells[8].querySelector('.status-badge');
+            statusBadge.className = `status-badge ${status}`;
+            statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
+            // Update row class for overdue
+            if (status === 'overdue') {
+                row.classList.add('overdue-row');
+            } else {
+                row.classList.remove('overdue-row');
+            }
+
+            closeModal('editModal');
+            alert('Rental updated successfully!');
+        }
+
+        // Open Complete Modal
+        function openCompleteModal(btn) {
+            rowToComplete = btn.closest('tr');
+            const cells = rowToComplete.cells;
+
+            document.getElementById('completeRentalId').textContent = cells[1].textContent;
+            document.getElementById('completeCustomer').textContent = cells[2].querySelector('.customer-name').textContent;
+            document.getElementById('completeBike').textContent = cells[3].querySelector('.bike-model').textContent;
+            document.getElementById('completeAmount').textContent = cells[7].textContent;
+
+            openModal('completeModal');
+        }
+
+        // Confirm Complete
+        function confirmComplete() {
+            if (rowToComplete) {
+                rowToComplete.remove();
+                rowToComplete = null;
+                closeModal('completeModal');
+                alert('Rental completed and removed from active rentals!');
+            }
+        }
+
+        // Modal Functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('show');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payments - Bike Rental Management System</title>
+    <link rel="stylesheet" href="payments.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <h2>BikeRental</h2>
+        </div>
+        <nav class="nav-menu">
+            <a href="dashboard.html" class="nav-item">
+                <span class="icon"><img src="dashboard.png"></i></span>
+                <span>Dashboard</span>
+            </a>
+            <a href="1.html" class="nav-item">
+                <span class="icon"><img src="bike-moving.png"></i></span>
+                <span>Bikes</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="icon"><img src="users.png"></i></span>
+                <span>Customers</span>
+            </a>
+            <a href="rentals.html" class="nav-item">
+                <span class="icon"><img src="list.png"></i></span>
+                <span>Rentals</span>
+            </a>
+            <a href="payments.html" class="nav-item active">
+                <span class="icon"><img src="wallet-arrow.png"></i></span>
+                <span>Payments</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="icon"><img src="settings.png"></i></span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="search-bar">
+                <input type="text" placeholder="Search payments by transaction ID, customer, or rental...">
+            </div>
+            <div class="header-right">
+                <button class="notification-btn"><img src="bell.png"></i></button>
+                <a href="settings.html" class="user-profile">
+                    <img src="profuser.png" alt="User Profile">
+                    <span>Admin</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Payments Content -->
+        <div class="payments-content">
+            <div class="page-header">
+                <h1>Payment Management</h1>
+                <button class="add-payment-btn" onclick="openModal()">+ Record Payment</button>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="stats-summary">
+                <div class="stat-box today">
+                    <div class="stat-icon"><span class="icon"><img src="profit.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>Today's Revenue</h3>
+                        <div class="number">₱12,450</div>
+                        <span class="stat-trend positive">+15% from yesterday</span>
+                    </div>
+                </div>
+                <div class="stat-box week">
+                    <div class="stat-icon"><span class="icon"><img src="calendar.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>This Week</h3>
+                        <div class="number">₱78,900</div>
+                        <span class="stat-trend positive">+8%</span>
+                    </div>
+                </div>
+                <div class="stat-box month">
+                    <div class="stat-icon"><span class="icon"><img src="bar-chart.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>This Month</h3>
+                        <div class="number">₱324,500</div>
+                        <span class="stat-trend positive">+12%</span>
+                    </div>
+                </div>
+                <div class="stat-box pending">
+                    <div class="stat-icon"><span class="icon"><img src="hourglass.png"></i></span></div>
+                    <div class="stat-info">
+                        <h3>Pending Payments</h3>
+                        <div class="number">5</div>
+                        <span class="stat-trend">₱4,200 total</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats Cards -->
+            <div class="quick-stats">
+                <div class="quick-stat-card">
+                    <h3>Payment Methods</h3>
+                    <div class="payment-method-list">
+                        <div class="payment-method-item">
+                            <span class="method-icon"><span class="icon"><img src="profit.png"></i></span></span>
+                            <div class="method-info">
+                                <span class="method-name">Cash</span>
+                                <span class="method-amount">₱156,800</span>
+                            </div>
+                            <span class="method-percentage">48%</span>
+                        </div>
+                        <div class="payment-method-item">
+                            <span class="method-icon"><span class="icon"><img src="credit-card.png"></i></span></span>
+                            <div class="method-info">
+                                <span class="method-name">Credit Card</span>
+                                <span class="method-amount">₱98,400</span>
+                            </div>
+                            <span class="method-percentage">30%</span>
+                        </div>
+                        <div class="payment-method-item">
+                            <span class="method-icon"><span class="icon"><img src="phone.png"></i></span></span>
+                            <div class="method-info">
+                                <span class="method-name">E-Wallet</span>
+                                <span class="method-amount">₱69,300</span>
+                            </div>
+                            <span class="method-percentage">22%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-stat-card">
+                    <h3>Recent Activity</h3>
+                    <div class="activity-list">
+                        <div class="activity-item">
+                            <div class="activity-dot completed"></div>
+                            <div class="activity-info">
+                                <span class="activity-text">Payment received from Juan Dela Cruz</span>
+                                <span class="activity-time">5 minutes ago</span>
+                            </div>
+                            <span class="activity-amount">₱1,000</span>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-dot completed"></div>
+                            <div class="activity-info">
+                                <span class="activity-text">Payment received from Maria Santos</span>
+                                <span class="activity-time">15 minutes ago</span>
+                            </div>
+                            <span class="activity-amount">₱700</span>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-dot pending"></div>
+                            <div class="activity-info">
+                                <span class="activity-text">Payment pending from Carlos Ramos</span>
+                                <span class="activity-time">1 hour ago</span>
+                            </div>
+                            <span class="activity-amount">₱800</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select>
+                            <option value="">All Status</option>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Payment Method</label>
+                        <select>
+                            <option value="">All Methods</option>
+                            <option value="cash">Cash</option>
+                            <option value="card">Credit/Debit Card</option>
+                            <option value="ewallet">E-Wallet</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Date Range</label>
+                        <select>
+                            <option value="">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sort By</label>
+                        <select>
+                            <option value="recent">Most Recent</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="amount-high">Highest Amount</option>
+                            <option value="amount-low">Lowest Amount</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payments Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>All Transactions</h2>
+                    <div class="table-actions">
+                        
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                
+                            </th>
+                            <th>Transaction ID</th>
+                            <th>Date & Time</th>
+                            <th>Rental ID</th>
+                            <th>Customer</th>
+                            <th>Payment Method</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="checkbox">
+                            </td>
+                            <td><span class="transaction-id">#TXN10001</span></td>
+                            <td>
+                                <div class="datetime-info">
+                                    <span class="date">Nov 26, 2025</span>
+                                    <span class="time">10:30 AM</span>
+                                </div>
+                            </td>
+                            <td><span class="rental-link">#R1001</span></td>
+                            <td>
+                                <div class="customer-info">
+                                    <div class="customer-avatar">JD</div>
+                                    <span class="customer-name">Juan Dela Cruz</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="payment-method">
+                                    <span>Cash</span>
+                                </div>
+                            </td>
+                            <td><span class="amount">₱1,000</span></td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view" title="View Details"><span class="icon"><img src="view.png"></i></span></button>
+                                    <button class="action-btn complete" title="Complete Rental"><span class="icon"><img src="check (1).png"></i></span></button>
+                                    <button class="action-btn edit" title="Edit"><span class="icon"><img src="edit.png"></i></span></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="pending-row">
+                            <td>
+                                <input type="checkbox">
+                            </td>
+                            <td><span class="transaction-id">#TXN10005</span></td>
+                            <td>
+                                <div class="datetime-info">
+                                    <span class="date">Nov 25, 2025</span>
+                                    <span class="time">05:40 PM</span>
+                                </div>
+                            </td>
+                            <td><span class="rental-link">#R1005</span></td>
+                            <td>
+                                <div class="customer-info">
+                                    <div class="customer-avatar">CR</div>
+                                    <span class="customer-name">Carlos Ramos</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="payment-method">
+                                    
+                                    <span>Credit Card</span>
+                                </div>
+                            </td>
+                            <td><span class="amount">₱800</span></td>
+                            <td><span class="status-badge pending">Pending</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn view" title="View Details"><span class="icon"><img src="view.png"></i></span></button>
+                                    <button class="action-btn confirm" title="Confirm Payment"><span class="icon"><img src="check (1).png"></i></span></button>
+                                    <button class="action-btn contact" title="Contact Customer"><span class="icon"><img src="phone-call.png"></i></span></button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="page-btn" disabled>« Previous</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <button class="page-btn">4</button>
+                    <button class="page-btn">5</button>
+                    <button class="page-btn">Next »</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+     <!-- Modal -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Record New Payment</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="paymentForm" onsubmit="handleSubmit(event)">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label for="rentalId">Rental ID</label>
+                            <input type="text" id="rentalId" placeholder="e.g., #R1001" required>
+                        </div>
+                        <div class="form-group required">
+                            <label for="transactionId">Transaction ID</label>
+                            <input type="text" id="transactionId" placeholder="Auto-generated" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-group required">
+                        <label for="customerName">Customer Name</label>
+                        <input type="text" id="customerName" placeholder="Enter customer name" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label for="amount">Amount (₱)</label>
+                            <input type="number" id="amount" placeholder="0.00" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group required">
+                            <label for="paymentMethod">Payment Method</label>
+                            <select id="paymentMethod" required>
+                                <option value="">Select method</option>
+                                <option value="cash">Cash</option>
+                                <option value="card">Credit/Debit Card</option>
+                                <option value="ewallet">E-Wallet (GCash, PayMaya)</option>
+                                <option value="bank">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label for="paymentDate">Payment Date</label>
+                            <input type="date" id="paymentDate" required>
+                        </div>
+                        <div class="form-group required">
+                            <label for="paymentTime">Payment Time</label>
+                            <input type="time" id="paymentTime" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group required">
+                        <label for="status">Payment Status</label>
+                        <select id="status" required>
+                            <option value="">Select status</option>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes (Optional)</label>
+                        <textarea id="notes" placeholder="Add any additional notes..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-submit">Record Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Generate transaction ID on page load
+        window.onload = function() {
+            generateTransactionId();
+            setCurrentDateTime();
+        };
+
+        function generateTransactionId() {
+            const randomNum = Math.floor(10000 + Math.random() * 90000);
+            document.getElementById('transactionId').value = '#TXN' + randomNum;
+        }
+
+        function setCurrentDateTime() {
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+            const time = now.toTimeString().split(' ')[0].substring(0, 5);
+            
+            document.getElementById('paymentDate').value = date;
+            document.getElementById('paymentTime').value = time;
+        }
+
+        function openModal() {
+            document.getElementById('paymentModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+            document.body.style.overflow = 'auto';
+            document.getElementById('paymentForm').reset();
+            generateTransactionId();
+            setCurrentDateTime();
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('paymentModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        function handleSubmit(event) {
+            event.preventDefault();
+            
+            // Get form data
+            const formData = {
+                transactionId: document.getElementById('transactionId').value,
+                rentalId: document.getElementById('rentalId').value,
+                customerName: document.getElementById('customerName').value,
+                amount: document.getElementById('amount').value,
+                paymentMethod: document.getElementById('paymentMethod').value,
+                paymentDate: document.getElementById('paymentDate').value,
+                paymentTime: document.getElementById('paymentTime').value,
+                status: document.getElementById('status').value,
+                notes: document.getElementById('notes').value
+            };
+
+            console.log('Payment recorded:', formData);
+            
+            // Show success message
+            alert('Payment recorded successfully!');
+            
+            // Close modal and reset form
+            closeModal();
+        }
+    </script>
+</body>
+</html>
