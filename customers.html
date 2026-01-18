@@ -141,88 +141,8 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <input type="checkbox">
-                            </td>
-                            <td>#C1001</td>
-                            <td>
-                                <div class="customer-info">
-                                    <div class="customer-avatar">JD</div>
-                                    <div class="customer-details">
-                                        <div class="customer-name">Juan Dela Cruz</div>
-                                        <div class="customer-joined">Joined Nov 2024</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>juan.delacruz@email.com</td>
-                            <td>+63 912 345 6789</td>
-                            <td>24</td>
-                            <td>₱18,500</td>
-                            <td><span class="status-badge active">Active Rental</span></td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="action-icon view" title="View Details" onclick="viewCustomer(this)"><span class="icon"><img src="view.png"></i></span></button>
-                                    <button class="action-icon edit" title="Edit" onclick="editCustomer(this)"><span class="icon"><img src="edit.png"></i></span></button>
-                                    <button class="action-icon delete" title="Delete" onclick="deleteCustomer(this)"><span class="icon"><img src="delete.png"></i></span></button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="checkbox">
-                            </td>
-                            <td>#C1002</td>
-                            <td>
-                                <div class="customer-info">
-                                    <div class="customer-avatar">MS</div>
-                                    <div class="customer-details">
-                                        <div class="customer-name">Maria Santos</div>
-                                        <div class="customer-joined">Joined Oct 2024</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>maria.santos@email.com</td>
-                            <td>+63 923 456 7890</td>
-                            <td>18</td>
-                            <td>₱14,200</td>
-                            <td><span class="status-badge active">Active Rental</span></td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="action-icon view" title="View Details" onclick="viewCustomer(this)"><span class="icon"><img src="view.png"></i></span></button>
-                                    <button class="action-icon edit" title="Edit" onclick="editCustomer(this)"><span class="icon"><img src="edit.png"></i></span></button>
-                                    <button class="action-icon delete" title="Delete" onclick="deleteCustomer(this)"><span class="icon"><img src="delete.png"></i></span></button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="checkbox">
-                            </td>
-                            <td>#C1003</td>
-                            <td>
-                                <div class="customer-info">
-                                    <div class="customer-avatar">PG</div>
-                                    <div class="customer-details">
-                                        <div class="customer-name">Pedro Garcia</div>
-                                        <div class="customer-joined">Joined Sep 2024</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>pedro.garcia@email.com</td>
-                            <td>+63 934 567 8901</td>
-                            <td>12</td>
-                            <td>₱9,800</td>
-                            <td><span class="status-badge inactive">No Rental</span></td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="action-icon view" title="View Details" onclick="viewCustomer(this)"><span class="icon"><img src="view.png"></i></span></button>
-                                    <button class="action-icon edit" title="Edit" onclick="editCustomer(this)"><span class="icon"><img src="edit.png"></i></span></button>
-                                    <button class="action-icon delete" title="Delete" onclick="deleteCustomer(this)"><span class="icon"><img src="delete.png"></i></span></button>
-                                </div>
-                            </td>
-                        </tr>
+                    <tbody id="customerTableBody">
+                        <!-- Dynamic rows will be inserted here -->
                     </tbody>
                 </table>
             </div>
@@ -357,6 +277,85 @@
 
     <script>
         let rowToDelete = null;
+
+        // Fetch and render customers
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCustomers();
+            const searchInput = document.querySelector('.search-bar input');
+            if (searchInput) {
+                searchInput.addEventListener('input', debounce(() => loadCustomers(searchInput.value.trim()), 300));
+            }
+        });
+
+        async function loadCustomers(query = '') {
+            try {
+                const url = query ? `get_customers.php?q=${encodeURIComponent(query)}` : 'get_customers.php';
+                const res = await fetch(url);
+                const data = await res.json();
+                if (!data.success) return;
+
+                // Update summary stats
+                updateSummary(data.summary);
+
+                // Render table rows
+                const tbody = document.getElementById('customerTableBody');
+                tbody.innerHTML = '';
+                data.members.forEach(m => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="checkbox"></td>
+                        <td>#C${String(m.id).padStart(4,'0')}</td>
+                        <td>
+                            <div class="customer-info">
+                                <div class="customer-avatar">${(m.firstName?.[0] || '?')}${(m.lastName?.[0] || '')}</div>
+                                <div class="customer-details">
+                                    <div class="customer-name">${escapeHtml(m.firstName)} ${escapeHtml(m.lastName)}</div>
+                                    <div class="customer-joined">Joined ${formatJoined(m.joined)}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${escapeHtml(m.email || '')}</td>
+                        <td>${escapeHtml(m.phone || '')}</td>
+                        <td>${m.totalRentals}</td>
+                        <td>₱0</td>
+                        <td><span class="status-badge ${m.activeRentals > 0 ? 'active' : 'inactive'}">${m.activeRentals > 0 ? 'Active Rental' : 'No Rental'}</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-icon view" title="View Details" onclick="viewCustomer(this)"><span class="icon"><img src="view.png"></span></button>
+                                <button class="action-icon edit" title="Edit" onclick="editCustomer(this)"><span class="icon"><img src="edit.png"></span></button>
+                                <button class="action-icon delete" title="Delete" onclick="deleteCustomer(this)"><span class="icon"><img src="delete.png"></span></button>
+                            </div>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error('Failed to load customers', e);
+            }
+        }
+
+        function updateSummary(summary) {
+            const totalBox = document.querySelector('.stats-summary .total .number');
+            const activeBox = document.querySelector('.stats-summary .active .number');
+            const newBox = document.querySelector('.stats-summary .new .number');
+            if (totalBox) totalBox.textContent = summary.totalMembers ?? '0';
+            if (activeBox) activeBox.textContent = summary.activeRentals ?? '0';
+            if (newBox) newBox.textContent = summary.newThisMonth ?? '0';
+        }
+
+        function formatJoined(dateStr) {
+            if (!dateStr) return 'Unknown';
+            const d = new Date(dateStr);
+            const options = { month: 'short', year: 'numeric' };
+            return d.toLocaleDateString(undefined, options);
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"]+/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+        }
+
+        function debounce(fn, delay) {
+            let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+        }
 
         // View Customer Details
         function viewCustomer(btn) {

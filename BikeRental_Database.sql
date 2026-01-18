@@ -36,10 +36,12 @@ GO
 -- =============================================
 CREATE TABLE Member (
     Member_ID INT PRIMARY KEY IDENTITY(1,1),
+    username NVARCHAR(50) UNIQUE,
     first_name NVARCHAR(50) NOT NULL,
     last_name NVARCHAR(50) NOT NULL,
     contact_number NVARCHAR(20),
     email NVARCHAR(100) UNIQUE NOT NULL,
+    password NVARCHAR(255) NOT NULL,
     address NVARCHAR(255),
     date_joined DATETIME DEFAULT GETDATE()
 );
@@ -102,11 +104,11 @@ INSERT INTO Admin (username, password, full_name, role) VALUES
 GO
 
 -- Insert Sample Members
-INSERT INTO Member (first_name, last_name, contact_number, email, address) VALUES
-('John', 'Anderson', '555-0001', 'john.anderson@email.com', '123 Main St, City'),
-('Sarah', 'Johnson', '555-0002', 'sarah.j@email.com', '456 Oak Ave, Town'),
-('Mike', 'Davis', '555-0003', 'mike.d@email.com', '789 Pine Rd, Village'),
-('Emily', 'Wilson', '555-0004', 'emily.w@email.com', '321 Elm St, City');
+INSERT INTO Member (username, first_name, last_name, contact_number, email, password, address) VALUES
+('john_a', 'John', 'Anderson', '555-0001', 'john.anderson@email.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '123 Main St, City'),
+('sarah_j', 'Sarah', 'Johnson', '555-0002', 'sarah.j@email.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '456 Oak Ave, Town'),
+('mike_d', 'Mike', 'Davis', '555-0003', 'mike.d@email.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '789 Pine Rd, Village'),
+('emily_w', 'Emily', 'Wilson', '555-0004', 'emily.w@email.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '321 Elm St, City');
 GO
 
 -- Insert Sample Bikes
@@ -147,14 +149,205 @@ CREATE INDEX IX_Returns_RentalID ON Returns(rental_id);
 GO
 
 -- =============================================
+-- Stored Procedures
+-- =============================================
+
+-- =============================================
+-- Login Procedures
+-- =============================================
+
+-- Get admin by username for login
+CREATE PROCEDURE sp_GetAdminByUsername
+    @Username NVARCHAR(50)
+AS
+BEGIN
+    SELECT Admin_ID, username, password, full_name, role
+    FROM Admin
+    WHERE username = @Username;
+END;
+GO
+
+-- Get member by username for login
+CREATE PROCEDURE sp_GetMemberByUsername
+    @Username NVARCHAR(50)
+AS
+BEGIN
+    SELECT Member_ID, username, first_name, last_name, email, password
+    FROM Member
+    WHERE username = @Username;
+END;
+GO
+
+-- Get member by email for login
+CREATE PROCEDURE sp_GetMemberByEmail
+    @Email NVARCHAR(100)
+AS
+BEGIN
+    SELECT Member_ID, username, first_name, last_name, email, password
+    FROM Member
+    WHERE email = @Email;
+END;
+GO
+
+-- =============================================
+-- Profile Procedures
+-- =============================================
+
+-- Get admin profile by ID
+CREATE PROCEDURE sp_GetAdminProfile
+    @AdminID INT
+AS
+BEGIN
+    SELECT Admin_ID, username, full_name, role
+    FROM Admin
+    WHERE Admin_ID = @AdminID;
+END;
+GO
+
+-- Get member profile by ID
+CREATE PROCEDURE sp_GetMemberProfile
+    @MemberID INT
+AS
+BEGIN
+    SELECT Member_ID, username, first_name, last_name, email, contact_number, address, date_joined
+    FROM Member
+    WHERE Member_ID = @MemberID;
+END;
+GO
+
+-- =============================================
+-- Statistics Procedures
+-- =============================================
+
+-- Get admin statistics
+CREATE PROCEDURE sp_GetAdminStats
+AS
+BEGIN
+    SELECT
+        (SELECT COUNT(*) FROM Bike) as TotalBikes,
+        (SELECT COUNT(*) FROM Rentals WHERE status = 'Active') as ActiveRentals,
+        (SELECT COUNT(*) FROM Member) as TotalMembers;
+END;
+GO
+
+-- Get member statistics
+CREATE PROCEDURE sp_GetMemberStats
+    @MemberID INT
+AS
+BEGIN
+    SELECT
+        (SELECT COUNT(*) FROM Rentals WHERE member_id = @MemberID) as TotalRentals,
+        (SELECT COUNT(*) FROM Rentals WHERE member_id = @MemberID AND status = 'Active') as ActiveRentals,
+        0 as FavoriteBikes; -- Placeholder for future implementation
+END;
+GO
+
+-- Register new member
+CREATE PROCEDURE sp_RegisterMember
+    @Username NVARCHAR(50),
+    @FirstName NVARCHAR(50),
+    @LastName NVARCHAR(50),
+    @ContactNumber NVARCHAR(20) = NULL,
+    @Email NVARCHAR(100),
+    @Password NVARCHAR(255),
+    @Address NVARCHAR(255) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if username or email already exists
+    IF EXISTS (SELECT 1 FROM Member WHERE username = @Username)
+    BEGIN
+        RAISERROR('Username already exists', 16, 1);
+        RETURN;
+    END
+
+    IF EXISTS (SELECT 1 FROM Member WHERE email = @Email)
+    BEGIN
+        RAISERROR('Email already exists', 16, 1);
+        RETURN;
+    END
+
+    -- Insert new member
+    INSERT INTO Member (username, first_name, last_name, contact_number, email, password, address)
+    VALUES (@Username, @FirstName, @LastName, @ContactNumber, @Email, @Password, @Address);
+
+    -- Return the new member ID
+    SELECT SCOPE_IDENTITY() as MemberID;
+END;
+GO
+
+-- Utility: List basic member info
+CREATE PROCEDURE sp_ListMembersBasic
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT Member_ID, first_name, last_name, email, username
+    FROM Member
+    ORDER BY Member_ID;
+END;
+GO
+
+-- Utility: Update a member's username
+CREATE PROCEDURE sp_UpdateMemberUsername
+    @MemberID INT,
+    @Username NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Member SET username = @Username WHERE Member_ID = @MemberID;
+END;
+GO
+
+-- Utility: Count members
+CREATE PROCEDURE sp_CountMembers
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) AS count FROM Member;
+END;
+GO
+
+-- Utility: Get top 3 members (basic info)
+CREATE PROCEDURE sp_GetTopMembersEmails
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 3 email, first_name, last_name FROM Member ORDER BY Member_ID;
+END;
+GO
+
+-- Admin: Get members with stats
+CREATE PROCEDURE sp_GetMembersWithStats
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        m.Member_ID,
+        m.first_name,
+        m.last_name,
+        m.email,
+        m.contact_number,
+        m.username,
+        m.date_joined,
+        (SELECT COUNT(*) FROM Rentals r WHERE r.member_id = m.Member_ID) AS TotalRentals,
+        (SELECT COUNT(*) FROM Rentals r WHERE r.member_id = m.Member_ID AND r.status = 'Active') AS ActiveRentals
+    FROM Member m
+    ORDER BY m.Member_ID;
+END;
+GO
+
+-- Admin: Count members joined in current month
+CREATE PROCEDURE sp_CountMembersNewThisMonth
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) AS NewThisMonth
+    FROM Member
+    WHERE YEAR(date_joined) = YEAR(GETDATE()) AND MONTH(date_joined) = MONTH(GETDATE());
+END;
+GO
+
+-- =============================================
 -- Script Complete
 -- =============================================
-PRINT 'BikeRental database created successfully!';
-PRINT 'Total Tables Created: 5 (Admin, Member, Bike, Rentals, Returns)';
-PRINT 'Sample data has been inserted.';
-PRINT '';
-PRINT 'Connection Details:';
-PRINT 'Server: localhost';
-PRINT 'Database: BikeRental';
-PRINT 'Authentication: Windows Authentication';
-GO

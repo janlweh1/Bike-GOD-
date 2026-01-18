@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BikeRental - Login</title>
     <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="login-messages.css">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48,8 +49,8 @@
 
                 <form>
                     <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" placeholder="Enter your email" required>
+                        <label>Username or Email</label>
+                        <input type="text" placeholder="Enter your username or email" required>
                     </div>
 
                     <div class="form-group">
@@ -61,7 +62,7 @@
                         <a href="#">Forgot password?</a>
                     </div>
                     
-                    <button type="button" class="login-btn" onclick="alert('Login functionality would go here')">
+                    <button type="button" class="login-btn">
                         Log In
                     </button>
                 </form>
@@ -72,5 +73,7 @@
             </div>
         </div>
     </div>
+
+    <script src="login.js"></script>
 </body>
 </html>
