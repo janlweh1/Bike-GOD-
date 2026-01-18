@@ -4,15 +4,12 @@
 // SQL Server configuration
 $serverName = "localhost"; // Change this to your SQL Server address
 $database = "BikeRental";
-$username = "your_username"; // Change this to your SQL Server username
-$password = "your_password"; // Change this to your SQL Server password
 
 // Connection options
 $connectionOptions = array(
     "Database" => $database,
-    "Uid" => $username,
-    "PWD" => $password,
-    "CharacterSet" => "UTF-8"
+    "CharacterSet" => "UTF-8",
+    "TrustServerCertificate" => true
 );
 
 // Function to get database connection

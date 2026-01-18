@@ -105,33 +105,17 @@
 
                 <div class="settings-card">
                     <h3>Personal Information</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>First Name</label>
-                            <input type="text" id="firstName" value="John" placeholder="Enter first name">
-                        </div>
-                        <div class="form-group">
-                            <label>Last Name</label>
-                            <input type="text" id="lastName" value="Doe" placeholder="Enter last name">
-                        </div>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="fullName" value="System Administrator" placeholder="Enter full name">
                     </div>
                     <div class="form-group">
                         <label>Username</label>
-                        <input type="text" value="admin" placeholder="Enter username">
+                        <input type="text" id="adminUsername" value="admin" placeholder="Enter username">
                     </div>
                     <div class="form-group">
-                        <label>Email Address</label>
-                        <input type="email" value="admin@bikerental.com" placeholder="Enter email">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Phone Number</label>
-                            <input type="tel" value="+63 912 345 6789" placeholder="Enter phone">
-                        </div>
-                        <div class="form-group">
-                            <label>Role</label>
-                            <input type="text" value="System Administrator" readonly style="background-color: #f5f5f5;">
-                        </div>
+                        <label>Role</label>
+                        <input type="text" id="adminRole" value="Super Admin" readonly style="background-color: #f5f5f5;">
                     </div>
                     <button class="secondary-btn" onclick="savePersonalInfo()">Save Changes</button>
                 </div>
@@ -150,7 +134,7 @@
                         <label>Confirm New Password</label>
                         <input type="password" placeholder="Confirm new password">
                     </div>
-                    <button class="secondary-btn">Update Password</button>
+                    <button class="secondary-btn" onclick="updatePassword()">Update Password</button>
                 </div>
 
                 <div class="settings-card">
@@ -219,7 +203,7 @@
                             <option value="usd">US Dollar ($)</option>
                         </select>
                     </div>
-                    <button class="secondary-btn" onclick="savePersonalInfo()">Save Changes</button>
+                    <button class="secondary-btn" onclick="saveGeneralSettings()">Save Changes</button>
                 </div>
 
                 <div class="settings-card">
@@ -244,6 +228,7 @@
                         <input type="checkbox" id="require-deposit" checked>
                         <label for="require-deposit">Require security deposit</label>
                     </div>
+                    <button class="secondary-btn" onclick="saveRentalSettings()">Save Rental Settings</button>
                 </div>
             </div>
 
@@ -284,6 +269,7 @@
                             <input type="text" value="123-456-789-000" placeholder="Enter TIN">
                         </div>
                     </div>
+                    <button class="secondary-btn" onclick="saveBusinessInfo()">Save Business Info</button>
                 </div>
 
                 <div class="settings-card">
@@ -325,29 +311,30 @@
                         <div class="pricing-row">
                             <span class="bike-type">Mountain Bike</span>
                             <input type="number" value="500" placeholder="Rate">
-                            <span class="per-unit">per day</span>
+                            <span class="per-unit">per hour</span>
                         </div>
                         <div class="pricing-row">
                             <span class="bike-type">City Bike</span>
                             <input type="number" value="350" placeholder="Rate">
-                            <span class="per-unit">per day</span>
+                            <span class="per-unit">per hour</span>
                         </div>
                         <div class="pricing-row">
                             <span class="bike-type">Road Bike</span>
                             <input type="number" value="600" placeholder="Rate">
-                            <span class="per-unit">per day</span>
+                            <span class="per-unit">per hour</span>
                         </div>
                         <div class="pricing-row">
                             <span class="bike-type">Electric Bike</span>
                             <input type="number" value="800" placeholder="Rate">
-                            <span class="per-unit">per day</span>
+                            <span class="per-unit">per hour</span>
                         </div>
                         <div class="pricing-row">
                             <span class="bike-type">BMX Bike</span>
                             <input type="number" value="400" placeholder="Rate">
-                            <span class="per-unit">per day</span>
+                            <span class="per-unit">per hour</span>
                         </div>
                     </div>
+                    <button class="secondary-btn" onclick="savePricingSettings()">Save Rates</button>
                 </div>
 
                 <div class="settings-card">
@@ -368,6 +355,7 @@
                         <input type="checkbox" id="tax-inclusive" checked>
                         <label for="tax-inclusive">Prices are tax-inclusive</label>
                     </div>
+                    <button class="secondary-btn" onclick="savePricingSettings()">Save Charges</button>
                 </div>
             </div>
 
@@ -449,7 +437,7 @@
                         <label>Email</label>
                         <input type="email" value="admin@bikerental.com">
                     </div>
-                    <button class="secondary-btn">Change Password</button>
+                    <button class="secondary-btn" onclick="openSecurityPassword()">Change Password</button>
                 </div>
 
                 <div class="settings-card">
@@ -471,6 +459,7 @@
                             <option value="120">2 Hours</option>
                         </select>
                     </div>
+                    <button class="secondary-btn" onclick="saveSecuritySettings()">Save Security Settings</button>
                 </div>
             </div>
 
@@ -570,8 +559,9 @@
     </div>
 
     <script>
-        // Initialize name display on page load
+        // Initialize settings data from backend and name display
         window.addEventListener('DOMContentLoaded', function() {
+            loadAdminFromBackend();
             updateNameDisplay();
         });
 
@@ -591,47 +581,47 @@
             });
         });
 
-        // Function to get initials from first and last name
-        function getInitials(firstName, lastName) {
-            const first = firstName.trim().charAt(0).toUpperCase();
-            const last = lastName.trim().charAt(0).toUpperCase();
-            return first + last;
+        // Function to get initials from full name
+        function getInitialsFromFullName(fullName) {
+            const parts = fullName.trim().split(/\s+/);
+            const first = parts[0] ? parts[0][0].toUpperCase() : '';
+            const last = parts.length > 1 ? parts[parts.length - 1][0].toUpperCase() : '';
+            return (first + last) || 'A';
         }
 
         // Function to update name display
         function updateNameDisplay() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const initials = getInitials(firstName, lastName);
-            const fullName = `${firstName} ${lastName}`;
-            
-            // Update profile name overlay
+            const fullName = document.getElementById('fullName').value || 'Admin';
+            const initials = getInitialsFromFullName(fullName);
             document.getElementById('profileNameOverlay').textContent = initials;
-            
-            // Update header user name
             document.getElementById('headerUserName').textContent = fullName;
         }
 
         // Save personal info function
-        function savePersonalInfo() {
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
-            
-            if (!firstName || !lastName) {
-                alert('Please enter both first name and last name.');
+        async function savePersonalInfo() {
+            const fullName = document.getElementById('fullName').value.trim();
+            const username = document.getElementById('adminUsername').value.trim();
+            if (!fullName || !username) {
+                alert('Please enter full name and username.');
                 return;
             }
-            
-            // Update display
-            updateNameDisplay();
-            
-            // Show success message
-            alert('Personal information saved successfully!');
+            try {
+                const res = await fetch('update_admin_profile.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name: fullName, username })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error('Update failed');
+                updateNameDisplay();
+                alert('Personal information saved successfully!');
+            } catch (e) {
+                alert('Failed to save profile.');
+            }
         }
 
         // Update name display when inputs change
-        document.getElementById('firstName').addEventListener('input', updateNameDisplay);
-        document.getElementById('lastName').addEventListener('input', updateNameDisplay);
+        document.getElementById('fullName').addEventListener('input', updateNameDisplay);
 
         // Photo upload functionality
         document.getElementById('photoUpload').addEventListener('change', function(e) {
@@ -674,6 +664,276 @@
                 document.getElementById('photoUpload').value = '';
             }
         }
+
+        async function loadAdminFromBackend() {
+            try {
+                const res = await fetch('get_admin_settings.php');
+                const data = await res.json();
+                if (!data.success) return;
+                const a = data.admin;
+                document.getElementById('fullName').value = a.full_name || 'Admin';
+                document.getElementById('adminUsername').value = a.username || 'admin';
+                document.getElementById('adminRole').value = a.role || '';
+                updateNameDisplay();
+            } catch {}
+        }
+
+        // Update password (Profile section)
+        async function updatePassword() {
+            const inputs = document.querySelectorAll('#profile .settings-card input[type="password"]');
+            const current = inputs[0].value.trim();
+            const next = inputs[1].value.trim();
+            const confirmNext = inputs[2].value.trim();
+            if (!current || !next || !confirmNext) {
+                alert('Please complete all password fields.');
+                return;
+            }
+            if (next.length < 8) {
+                alert('New password must be at least 8 characters.');
+                return;
+            }
+            if (next !== confirmNext) {
+                alert('New password and confirmation do not match.');
+                return;
+            }
+            if (next === current) {
+                alert('New password must differ from current password.');
+                return;
+            }
+            try {
+                const res = await fetch('update_admin_password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: current, new_password: next })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    if (data.error === 'wrong_current_password') alert('Current password is incorrect.');
+                    else alert('Failed to update password.');
+                    return;
+                }
+                alert('Password updated successfully!');
+                inputs.forEach(i => i.value = '');
+            } catch (e) {
+                alert('Failed to update password.');
+            }
+        }
+
+        // Save General settings
+        function saveGeneralSettings() {
+            const section = document.getElementById('general');
+            const systemName = section.querySelector('input[placeholder="Enter system name"]').value.trim();
+            const language = section.querySelector('select').value;
+            const timezone = section.querySelectorAll('select')[1].value;
+            const dateFormat = section.querySelectorAll('select')[2].value;
+            const currency = section.querySelectorAll('select')[3].value;
+            const settings = getSettings();
+            settings.general = { systemName, language, timezone, dateFormat, currency };
+            setSettings(settings);
+            alert('General settings saved.');
+        }
+
+        // Save Rental settings
+        function saveRentalSettings() {
+            const section = document.getElementById('general');
+            const minPeriod = section.querySelector('select option[value="1"]').selected ? 1 : (section.querySelector('select option[value="4"]').selected ? 4 : 24);
+            const maxDays = parseInt(section.querySelector('input[placeholder="Days"]').value, 10) || 0;
+            const autoLate = document.getElementById('auto-late').checked;
+            const requireDeposit = document.getElementById('require-deposit').checked;
+            const settings = getSettings();
+            settings.rental = { minPeriod, maxDays, autoLate, requireDeposit };
+            setSettings(settings);
+            alert('Rental settings saved.');
+        }
+
+        // Save Business Info
+        function saveBusinessInfo() {
+            const section = document.getElementById('business');
+            const name = section.querySelector('input[placeholder="Enter business name"]').value.trim();
+            const address = section.querySelector('textarea').value.trim();
+            const phone = section.querySelector('input[type="tel"]').value.trim();
+            const email = section.querySelector('input[type="email"]').value.trim();
+            const website = section.querySelector('input[type="url"]').value.trim();
+            const tin = section.querySelector('input[placeholder="Enter TIN"]').value.trim();
+            const hourRows = section.querySelectorAll('.hour-row');
+            const hours = {
+                weekdays: { from: hourRows[0].querySelectorAll('input')[0].value, to: hourRows[0].querySelectorAll('input')[1].value },
+                saturday: { from: hourRows[1].querySelectorAll('input')[0].value, to: hourRows[1].querySelectorAll('input')[1].value },
+                sunday: { from: hourRows[2].querySelectorAll('input')[0].value, to: hourRows[2].querySelectorAll('input')[1].value },
+            };
+            const settings = getSettings();
+            settings.business = { name, address, phone, email, website, tin, hours };
+            setSettings(settings);
+            alert('Business information saved.');
+        }
+
+        // Save Pricing & Charges
+        async function savePricingSettings() {
+            const section = document.getElementById('pricing');
+            const rows = section.querySelectorAll('.pricing-row');
+            const map = {
+                'Mountain Bike': parseFloat(rows[0].querySelector('input').value) || 0,
+                'City Bike': parseFloat(rows[1].querySelector('input').value) || 0,
+                'Road Bike': parseFloat(rows[2].querySelector('input').value) || 0,
+                'Electric Bike': parseFloat(rows[3].querySelector('input').value) || 0,
+                'BMX Bike': parseFloat(rows[4].querySelector('input').value) || 0,
+            };
+            try {
+                const res = await fetch('update_pricing.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rates: map })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    console.error('Save pricing failed:', data);
+                    let msg = data.error ? `Failed to save pricing: ${data.error}` : 'Failed to save pricing.';
+                    if (data.detail) {
+                        try {
+                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
+                            if (err) msg += `\nDetails: ${err}`;
+                        } catch {}
+                    }
+                    alert(msg);
+                    return;
+                }
+                alert('Pricing saved to database.');
+            } catch (e) {
+                console.error('Save pricing exception:', e);
+                alert('Failed to save pricing. Please check server/DB.');
+            }
+        }
+
+        // Save Security settings
+        function saveSecuritySettings() {
+            const section = document.getElementById('security');
+            const email = section.querySelector('input[type="email"]').value.trim();
+            const twoFactor = document.getElementById('two-factor').checked;
+            const loginNotification = document.getElementById('login-notification').checked;
+            const sessionTimeout = section.querySelector('select').value;
+            const settings = getSettings();
+            settings.security = { email, twoFactor, loginNotification, sessionTimeout };
+            setSettings(settings);
+            alert('Security settings saved.');
+        }
+
+        // Open security password change (redirect to Profile section)
+        function openSecurityPassword() {
+            document.querySelector('.settings-tab[data-tab="profile"]').click();
+            const profileSection = document.getElementById('profile');
+            profileSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Disable Notifications interactions
+        function disableNotifications() {
+            const section = document.getElementById('notifications');
+            section.querySelectorAll('input, select, button').forEach(el => {
+                el.disabled = true;
+            });
+            const banner = document.createElement('div');
+            banner.style.background = '#fff3cd';
+            banner.style.color = '#856404';
+            banner.style.padding = '12px 16px';
+            banner.style.border = '1px solid #ffeeba';
+            banner.style.borderRadius = '8px';
+            banner.style.margin = '0 0 16px 0';
+            banner.textContent = 'Notifications settings are not available yet.';
+            section.insertBefore(banner, section.firstChild);
+        }
+
+        // Persistence helpers
+        function getSettings() {
+            try { return JSON.parse(localStorage.getItem('adminSettings')) || {}; } catch { return {}; }
+        }
+        function setSettings(obj) {
+            localStorage.setItem('adminSettings', JSON.stringify(obj));
+        }
+
+        // Load saved settings on start
+        async function loadSavedSettings() {
+            const s = getSettings();
+            // General
+            if (s.general) {
+                const section = document.getElementById('general');
+                section.querySelector('input[placeholder="Enter system name"]').value = s.general.systemName || section.querySelector('input[placeholder="Enter system name"]').value;
+                section.querySelector('select').value = s.general.language || section.querySelector('select').value;
+                section.querySelectorAll('select')[1].value = s.general.timezone || section.querySelectorAll('select')[1].value;
+                section.querySelectorAll('select')[2].value = s.general.dateFormat || section.querySelectorAll('select')[2].value;
+                section.querySelectorAll('select')[3].value = s.general.currency || section.querySelectorAll('select')[3].value;
+            }
+            if (s.rental) {
+                const section = document.getElementById('general');
+                // minPeriod select
+                const select = section.querySelectorAll('select')[0];
+                Array.from(select.options).forEach(opt => opt.selected = false);
+                const val = String(s.rental.minPeriod || 1);
+                const targetOpt = Array.from(select.options).find(o => o.value === val);
+                if (targetOpt) targetOpt.selected = true;
+                section.querySelector('input[placeholder="Days"]').value = s.rental.maxDays ?? section.querySelector('input[placeholder="Days"]').value;
+                document.getElementById('auto-late').checked = !!s.rental.autoLate;
+                document.getElementById('require-deposit').checked = !!s.rental.requireDeposit;
+            }
+            // Business
+            if (s.business) {
+                const section = document.getElementById('business');
+                section.querySelector('input[placeholder="Enter business name"]').value = s.business.name || section.querySelector('input[placeholder="Enter business name"]').value;
+                section.querySelector('textarea').value = s.business.address || section.querySelector('textarea').value;
+                section.querySelector('input[type="tel"]').value = s.business.phone || section.querySelector('input[type="tel"]').value;
+                section.querySelector('input[type="email"]').value = s.business.email || section.querySelector('input[type="email"]').value;
+                section.querySelector('input[type="url"]').value = s.business.website || section.querySelector('input[type="url"]').value;
+                section.querySelector('input[placeholder="Enter TIN"]').value = s.business.tin || section.querySelector('input[placeholder="Enter TIN"]').value;
+                const hourRows = section.querySelectorAll('.hour-row');
+                if (s.business.hours) {
+                    hourRows[0].querySelectorAll('input')[0].value = s.business.hours.weekdays?.from || hourRows[0].querySelectorAll('input')[0].value;
+                    hourRows[0].querySelectorAll('input')[1].value = s.business.hours.weekdays?.to || hourRows[0].querySelectorAll('input')[1].value;
+                    hourRows[1].querySelectorAll('input')[0].value = s.business.hours.saturday?.from || hourRows[1].querySelectorAll('input')[0].value;
+                    hourRows[1].querySelectorAll('input')[1].value = s.business.hours.saturday?.to || hourRows[1].querySelectorAll('input')[1].value;
+                    hourRows[2].querySelectorAll('input')[0].value = s.business.hours.sunday?.from || hourRows[2].querySelectorAll('input')[0].value;
+                    hourRows[2].querySelectorAll('input')[1].value = s.business.hours.sunday?.to || hourRows[2].querySelectorAll('input')[1].value;
+                }
+            }
+            // Pricing: load from DB if available
+            try {
+                const res = await fetch('get_pricing.php');
+                const data = await res.json();
+                if (data.success) {
+                    const section = document.getElementById('pricing');
+                    const rows = section.querySelectorAll('.pricing-row');
+                    const rates = data.rates || {};
+                    const setIf = (idx, name) => { if (rates[name] != null) rows[idx].querySelector('input').value = rates[name]; };
+                    setIf(0, 'Mountain Bike');
+                    setIf(1, 'City Bike');
+                    setIf(2, 'Road Bike');
+                    setIf(3, 'Electric Bike');
+                    setIf(4, 'BMX Bike');
+                }
+            } catch {}
+            // Charges remain local-only for now
+            if (s.pricing) {
+                const section = document.getElementById('pricing');
+                const chargesCard = section.querySelectorAll('.settings-card')[1];
+                if (s.pricing.charges) {
+                    chargesCard.querySelectorAll('input')[0].value = s.pricing.charges.lateFee ?? chargesCard.querySelectorAll('input')[0].value;
+                    chargesCard.querySelectorAll('input')[1].value = s.pricing.charges.damageFee ?? chargesCard.querySelectorAll('input')[1].value;
+                    chargesCard.querySelectorAll('input')[2].value = s.pricing.charges.deposit ?? chargesCard.querySelectorAll('input')[2].value;
+                    document.getElementById('tax-inclusive').checked = !!s.pricing.charges.taxInclusive;
+                }
+            }
+            // Security
+            if (s.security) {
+                const section = document.getElementById('security');
+                section.querySelector('input[type="email"]').value = s.security.email ?? section.querySelector('input[type="email"]').value;
+                document.getElementById('two-factor').checked = !!s.security.twoFactor;
+                document.getElementById('login-notification').checked = !!s.security.loginNotification;
+                section.querySelector('select').value = s.security.sessionTimeout ?? section.querySelector('select').value;
+            }
+        }
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedSettings();
+            disableNotifications();
+        });
     </script>
 </body>
 </html>

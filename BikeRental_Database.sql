@@ -204,6 +204,19 @@ BEGIN
 END;
 GO
 
+-- Update admin profile (username, full_name)
+CREATE PROCEDURE sp_UpdateAdminProfile
+    @AdminID INT,
+    @Username NVARCHAR(50),
+    @FullName NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Admin SET username = @Username, full_name = @FullName
+    WHERE Admin_ID = @AdminID;
+END;
+GO
+
 -- Get member profile by ID
 CREATE PROCEDURE sp_GetMemberProfile
     @MemberID INT
@@ -345,6 +358,56 @@ BEGIN
     SELECT COUNT(*) AS NewThisMonth
     FROM Member
     WHERE YEAR(date_joined) = YEAR(GETDATE()) AND MONTH(date_joined) = MONTH(GETDATE());
+END;
+GO
+
+-- =============================================
+-- Admin Security Procedures
+-- =============================================
+
+-- Get admin auth info by ID (returns password for verification)
+CREATE PROCEDURE sp_GetAdminAuthById
+    @AdminID INT
+AS
+BEGIN
+    SELECT Admin_ID, username, password FROM Admin WHERE Admin_ID = @AdminID;
+END;
+GO
+
+-- Update admin password
+CREATE PROCEDURE sp_UpdateAdminPassword
+    @AdminID INT,
+    @Password NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Admin SET password = @Password WHERE Admin_ID = @AdminID;
+END;
+GO
+
+-- =============================================
+-- Pricing Procedures
+-- =============================================
+
+-- Get average rates grouped by bike type
+CREATE PROCEDURE sp_GetRatesByType
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT bike_type, AVG(hourly_rate) AS rate
+    FROM Bike
+    GROUP BY bike_type;
+END;
+GO
+
+-- Update rate by bike type
+CREATE PROCEDURE sp_UpdateRateByType
+    @BikeType NVARCHAR(50),
+    @Rate DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Bike SET hourly_rate = @Rate WHERE bike_type = @BikeType;
 END;
 GO
 
