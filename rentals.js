@@ -1,0 +1,456 @@
+// Global variables
+let allRentals = [];
+let filteredRentals = [];
+let currentRentalForComplete = null;
+
+// Load rental data on page load
+function loadRentalData() {
+    try {
+        // Get active rentals
+        const storedActiveRentals = localStorage.getItem('activeRentals');
+        const activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
+        
+        // Get rental history
+        const storedHistory = localStorage.getItem('rentalHistory');
+        const rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
+        
+        // Combine all rentals
+        allRentals = [...activeRentals, ...rentalHistory];
+        
+        // Sort by most recent first
+        allRentals.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+        
+        filteredRentals = [...allRentals];
+        
+        // Update statistics
+        updateStatistics();
+        
+        // Display rentals
+        displayRentals();
+    } catch (error) {
+        console.error('Error loading rental data:', error);
+        displayNoData();
+    }
+}
+
+// Calculate rental status
+function calculateRentalStatus(rental) {
+    const now = new Date();
+    const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
+    
+    // If rental has been manually marked as completed or cancelled
+    if (rental.status === 'completed' || rental.status === 'cancelled') {
+        return rental.status;
+    }
+    
+    // Check if rental is scheduled for future
+    if (now < scheduledStart) {
+        return 'pending';
+    }
+    
+    // Calculate expected return time
+    const returnTime = new Date(scheduledStart);
+    returnTime.setHours(returnTime.getHours() + rental.duration);
+    
+    // Check if overdue
+    if (now > returnTime) {
+        return 'overdue';
+    }
+    
+    // Active rental
+    return 'active';
+}
+
+// Calculate return time
+function calculateReturnTime(rental) {
+    try {
+        const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
+        const returnTime = new Date(scheduledStart);
+        returnTime.setHours(returnTime.getHours() + rental.duration);
+        
+        return returnTime.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+    } catch (error) {
+        return 'N/A';
+    }
+}
+
+// Format date
+function formatDate(dateString) {
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+    } catch (error) {
+        return 'N/A';
+    }
+}
+
+// Format time
+function formatTime(timeString) {
+    try {
+        const [hours, minutes] = timeString.split(':');
+        const date = new Date();
+        date.setHours(parseInt(hours), parseInt(minutes));
+        return date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+    } catch (error) {
+        return timeString;
+    }
+}
+
+// Update statistics
+function updateStatistics() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let activeCount = 0;
+    let completedTodayCount = 0;
+    let overdueCount = 0;
+    let todayRevenue = 0;
+    
+    allRentals.forEach(rental => {
+        const status = calculateRentalStatus(rental);
+        
+        if (status === 'active') {
+            activeCount++;
+        } else if (status === 'overdue') {
+            overdueCount++;
+        }
+        
+        // Check if completed today
+        if (status === 'completed' && rental.endTime) {
+            const endDate = new Date(rental.endTime);
+            endDate.setHours(0, 0, 0, 0);
+            
+            if (endDate.getTime() === today.getTime()) {
+                completedTodayCount++;
+                todayRevenue += rental.cost || 0;
+            }
+        }
+    });
+    
+    // Update DOM
+    document.getElementById('activeCount').textContent = activeCount;
+    document.getElementById('completedTodayCount').textContent = completedTodayCount;
+    document.getElementById('overdueCount').textContent = overdueCount;
+    document.getElementById('todayRevenue').textContent = '₱' + todayRevenue.toFixed(2);
+}
+
+// Display rentals in table
+function displayRentals() {
+    const tbody = document.getElementById('rentalTableBody');
+    
+    if (filteredRentals.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="11" style="text-align: center; padding: 3rem; color: #64748b;">
+                    No rentals found.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = filteredRentals.map((rental, index) => {
+        const status = calculateRentalStatus(rental);
+        const returnTime = calculateReturnTime(rental);
+        const rentalIdShort = rental.id ? rental.id.substring(0, 8) : 'N/A';
+        
+        const rowClass = status === 'overdue' ? 'overdue-row' : '';
+        
+        return `
+            <tr class="${rowClass}" data-rental-index="${index}">
+                <td>
+                    <input type="checkbox" class="rental-checkbox">
+                </td>
+                <td><span class="rental-id">#${rentalIdShort}</span></td>
+                <td>
+                    <div class="customer-info">
+                        <div class="customer-name">${rental.customerName || 'N/A'}</div>
+                    </div>
+                </td>
+                <td>
+                    <div class="bike-info">
+                        <span class="bike-model">${rental.name}</span>
+                        <span class="bike-id">${rental.category}</span>
+                    </div>
+                </td>
+                <td>${formatDate(rental.pickupDate)}</td>
+                <td>${formatTime(rental.pickupTime)}</td>
+                <td>${returnTime}</td>
+                <td>${rental.duration} hour(s)</td>
+                <td><span class="amount">₱${rental.cost.toFixed(2)}</span></td>
+                <td><span class="status-badge ${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="action-btn view" title="View Details" onclick="viewRental(${index})">
+                            <span class="icon"><img src="view.png"></span>
+                        </button>
+                        ${status === 'active' || status === 'overdue' ? `
+                            <button class="action-btn complete" title="Complete Rental" onclick="openCompleteModal(${index})">
+                                <span class="icon"><img src="check (1).png"></span>
+                            </button>
+                        ` : ''}
+                        ${status === 'overdue' ? `
+                            <button class="action-btn contact" title="Contact Customer" onclick="contactCustomer(${index})">
+                                <span class="icon"><img src="phone-call.png"></span>
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Display no data message
+function displayNoData() {
+    const tbody = document.getElementById('rentalTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="11" style="text-align: center; padding: 3rem; color: #64748b;">
+                No rental data available.
+            </td>
+        </tr>
+    `;
+}
+
+// View rental details
+function viewRental(index) {
+    const rental = filteredRentals[index];
+    const status = calculateRentalStatus(rental);
+    const returnTime = calculateReturnTime(rental);
+    
+    document.getElementById('viewRentalId').textContent = '#' + (rental.id ? rental.id.substring(0, 8) : 'N/A');
+    document.getElementById('viewStatus').innerHTML = `<span class="status-badge ${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+    document.getElementById('viewStartDate').textContent = formatDate(rental.pickupDate);
+    document.getElementById('viewStartTime').textContent = formatTime(rental.pickupTime);
+    document.getElementById('viewReturnTime').textContent = returnTime;
+    document.getElementById('viewDuration').textContent = rental.duration + ' hour(s)';
+    document.getElementById('viewAmount').textContent = '₱' + rental.cost.toFixed(2);
+    document.getElementById('viewLocation').textContent = rental.location || 'Downtown Station A';
+    
+    document.getElementById('viewCustomer').textContent = rental.customerName || 'N/A';
+    document.getElementById('viewEmail').textContent = rental.customerEmail || 'N/A';
+    document.getElementById('viewPhone').textContent = rental.customerPhone || 'N/A';
+    
+    document.getElementById('viewBikeModel').textContent = rental.name;
+    document.getElementById('viewBikeCategory').textContent = rental.category.charAt(0).toUpperCase() + rental.category.slice(1);
+    
+    openModal('viewModal');
+}
+
+// Open complete modal
+function openCompleteModal(index) {
+    const rental = filteredRentals[index];
+    currentRentalForComplete = rental;
+    
+    const rentalIdShort = rental.id ? rental.id.substring(0, 8) : 'N/A';
+    
+    document.getElementById('completeRentalId').textContent = '#' + rentalIdShort;
+    document.getElementById('completeCustomer').textContent = rental.customerName || 'N/A';
+    document.getElementById('completeBike').textContent = rental.name;
+    document.getElementById('completeAmount').textContent = '₱' + rental.cost.toFixed(2);
+    
+    openModal('completeModal');
+}
+
+// Confirm complete rental
+function confirmComplete() {
+    if (!currentRentalForComplete) return;
+    
+    try {
+        // Get active rentals
+        const storedActiveRentals = localStorage.getItem('activeRentals');
+        let activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
+        
+        // Find and remove from active rentals
+        const activeIndex = activeRentals.findIndex(r => r.id === currentRentalForComplete.id);
+        
+        if (activeIndex !== -1) {
+            // Mark as completed
+            const completedRental = {
+                ...activeRentals[activeIndex],
+                status: 'completed',
+                endTime: new Date().toISOString()
+            };
+            
+            // Remove from active
+            activeRentals.splice(activeIndex, 1);
+            localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
+            
+            // Add to history
+            const storedHistory = localStorage.getItem('rentalHistory');
+            let rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
+            rentalHistory.unshift(completedRental);
+            localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
+            
+            alert('Rental completed successfully!');
+            closeModal('completeModal');
+            currentRentalForComplete = null;
+            
+            // Reload data
+            loadRentalData();
+        } else {
+            alert('Rental not found in active rentals.');
+        }
+    } catch (error) {
+        console.error('Error completing rental:', error);
+        alert('Error completing rental. Please try again.');
+    }
+}
+
+// Contact customer
+function contactCustomer(index) {
+    const rental = filteredRentals[index];
+    const phone = rental.customerPhone || '';
+    
+    if (phone) {
+        alert(`Contact Customer: ${rental.customerName}\nPhone: ${phone}\n\nThis rental is overdue. Please contact the customer.`);
+    } else {
+        alert('No phone number available for this customer.');
+    }
+}
+
+// Apply filters
+function applyFilters() {
+    const statusFilter = document.getElementById('filterStatus').value;
+    const dateFilter = document.getElementById('filterDate').value;
+    const bikeTypeFilter = document.getElementById('filterBikeType').value;
+    const sortFilter = document.getElementById('filterSort').value;
+    
+    // Filter by status
+    filteredRentals = allRentals.filter(rental => {
+        if (statusFilter && calculateRentalStatus(rental) !== statusFilter) {
+            return false;
+        }
+        return true;
+    });
+    
+    // Filter by date range
+    if (dateFilter) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        filteredRentals = filteredRentals.filter(rental => {
+            const rentalDate = new Date(rental.pickupDate);
+            rentalDate.setHours(0, 0, 0, 0);
+            
+            if (dateFilter === 'today') {
+                return rentalDate.getTime() === today.getTime();
+            } else if (dateFilter === 'week') {
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return rentalDate >= weekAgo;
+            } else if (dateFilter === 'month') {
+                const monthAgo = new Date(today);
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                return rentalDate >= monthAgo;
+            }
+            return true;
+        });
+    }
+    
+    // Filter by bike type
+    if (bikeTypeFilter) {
+        filteredRentals = filteredRentals.filter(rental => {
+            return rental.category.toLowerCase() === bikeTypeFilter.toLowerCase();
+        });
+    }
+    
+    // Sort
+    if (sortFilter === 'recent') {
+        filteredRentals.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+    } else if (sortFilter === 'oldest') {
+        filteredRentals.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    } else if (sortFilter === 'return-date') {
+        filteredRentals.sort((a, b) => {
+            const returnA = new Date(a.pickupDate + ' ' + a.pickupTime);
+            returnA.setHours(returnA.getHours() + a.duration);
+            const returnB = new Date(b.pickupDate + ' ' + b.pickupTime);
+            returnB.setHours(returnB.getHours() + b.duration);
+            return returnA - returnB;
+        });
+    } else if (sortFilter === 'amount') {
+        filteredRentals.sort((a, b) => b.cost - a.cost);
+    }
+    
+    displayRentals();
+}
+
+// Search rentals
+function searchRentals(searchTerm) {
+    searchTerm = searchTerm.toLowerCase();
+    
+    if (!searchTerm) {
+        filteredRentals = [...allRentals];
+    } else {
+        filteredRentals = allRentals.filter(rental => {
+            const rentalId = rental.id ? rental.id.toLowerCase() : '';
+            const customerName = rental.customerName ? rental.customerName.toLowerCase() : '';
+            const bikeName = rental.name ? rental.name.toLowerCase() : '';
+            
+            return rentalId.includes(searchTerm) || 
+                   customerName.includes(searchTerm) || 
+                   bikeName.includes(searchTerm);
+        });
+    }
+    
+    displayRentals();
+}
+
+// Modal functions
+function openModal(modalId) {
+    document.getElementById(modalId).classList.add('show');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('show');
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadRentalData();
+    
+    // Filter event listeners
+    document.getElementById('filterStatus').addEventListener('change', applyFilters);
+    document.getElementById('filterDate').addEventListener('change', applyFilters);
+    document.getElementById('filterBikeType').addEventListener('change', applyFilters);
+    document.getElementById('filterSort').addEventListener('change', applyFilters);
+    
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', (e) => {
+        searchRentals(e.target.value);
+    });
+    
+    // Select all checkbox
+    document.getElementById('selectAll').addEventListener('change', (e) => {
+        const checkboxes = document.querySelectorAll('.rental-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+    });
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.classList.remove('show');
+        }
+    };
+    
+    // Refresh data every 30 seconds to update statuses
+    setInterval(() => {
+        loadRentalData();
+    }, 30000);
+});

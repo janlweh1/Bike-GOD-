@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Rentals - BikeRental</title>
+    <link rel="stylesheet" href="my_rental.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                    <circle cx="8" cy="22" r="6" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                    <circle cx="22" cy="22" r="6" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                    <path d="M8 22L15 10L22 22" stroke="#00D4FF" stroke-width="2"/>
+                    <path d="M12 14H18" stroke="#00D4FF" stroke-width="2"/>
+                </svg>
+                <span class="logo-text">BikeRental</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="ahome.html">Home</a></li>
+                <li><a href="2browse.html">Browse Bikes</a></li>
+                <li><a href="ahowitworks.html">How It Works</a></li>
+                <li><a href="apricing.html">Pricing</a></li>
+                <li><a href="contact.html">Contact</a></li>
+                <li><a href="my_rental.html" class="active">My Rentals</a></li>
+                <li><a href="ahome.html">Profile</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">My Rental History</h1>
+            <p class="hero-subtitle">Track your rides and manage active rentals</p>
+        </div>
+    </section>
+
+    <!-- Active Rental Section -->
+    <section class="active-rental-section">
+        <div class="container">
+            <h2 class="section-title">Active Rentals (<span id="activeRentalCount">0</span>)</h2>
+            
+            <div id="activeRentalsGrid" class="rentals-grid">
+                <!-- Active rentals will be dynamically inserted here -->
+            </div>
+
+            <div id="noActiveRental" style="display: none;">
+                <div class="no-rental-card">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                        <circle cx="40" cy="40" r="38" stroke="#e2e8f0" stroke-width="4"/>
+                        <path d="M40 20V40M40 52V52.02" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                    <h3>No Active Rentals</h3>
+                    <p>You don't have any active bike rentals at the moment.</p>
+                    <a href="2browse.html" class="browse-btn">Browse Bikes</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper cyan">
+                        <svg class="stat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <circle cx="7" cy="17" r="3" stroke="#22d3ee" stroke-width="2"/>
+                            <circle cx="17" cy="17" r="3" stroke="#22d3ee" stroke-width="2"/>
+                            <path d="M12 4V12M12 12L7 17M12 12L17 17" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="trend-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M7 17L17 7M17 7H7M17 7V17" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="stat-number" id="totalRides">0</div>
+                    <div class="stat-label">Total Rides</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper blue">
+                        <svg class="stat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="2"/>
+                            <path d="M12 6V12L16 14" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="trend-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M7 17L17 7M17 7H7M17 7V17" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="stat-number" id="totalHours">0</div>
+                    <div class="stat-label">Total Hours</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper purple">
+                        <svg class="stat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="#a855f7" stroke-width="2"/>
+                            <path d="M12 6V12M12 12H16" stroke="#a855f7" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="trend-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M7 17L17 7M17 7H7M17 7V17" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="stat-number" id="totalSpent">₱0</div>
+                    <div class="stat-label">Total Spent</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Transaction History Section -->
+    <section class="history-section">
+        <div class="container">
+            <div class="history-header">
+                <h2 class="section-title">Transaction History</h2>
+                <div class="history-controls">
+                    <input type="text" class="search-input" placeholder="Search..." id="searchInput">
+                    <button class="export-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M7 10L12 15M12 15L17 10M12 15V3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="history-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Bike</th>
+                            <th>Duration</th>
+                            <th>Location</th>
+                            <th>Cost</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- Transaction history will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination">
+                <button class="page-btn" disabled>Previous</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <button class="page-btn">Next</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Extend Rental Modal -->
+    <div class="modal-overlay" id="extendModal">
+        <div class="modal-content-small">
+            <button class="modal-close" id="closeExtendModal">&times;</button>
+            <h2>Extend Rental</h2>
+            <p class="modal-subtitle">Add more hours to your rental</p>
+            
+            <div class="form-group">
+                <label>Additional Hours</label>
+                <div class="duration-control">
+                    <button type="button" class="duration-btn" id="decreaseExtendBtn">−</button>
+                    <input type="number" id="extendHours" value="1" min="1" max="24" readonly>
+                    <button type="button" class="duration-btn" id="increaseExtendBtn">+</button>
+                </div>
+            </div>
+
+            <div class="extend-summary">
+                <div class="summary-row">
+                    <span>Additional Cost:</span>
+                    <span id="extendCost">₱50.00</span>
+                </div>
+            </div>
+
+            <button class="submit-btn" id="confirmExtendBtn">Confirm Extension</button>
+        </div>
+    </div>
+
+    <script src="my_rental.js"></script>
+</body>
+</html>

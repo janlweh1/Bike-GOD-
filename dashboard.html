@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Rental Management System</title>
+    <link rel="stylesheet" href="dashboard.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <h2>BikeRental</h2>
+        </div>
+        <nav class="nav-menu">
+            <a href="dashboard.html" class="nav-item active">
+                <span class="icon"><img src="dashboard.png" alt="Dashboard"></span>
+                <span>Dashboard</span>
+            </a>
+            <a href="1.html" class="nav-item">
+                <span class="icon"><img src="bike-moving.png" alt="Bikes"></span>
+                <span>Bikes</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="icon"><img src="users.png" alt="Customers"></span>
+                <span>Customers</span>
+            </a>
+            <a href="rentals.html" class="nav-item">
+                <span class="icon"><img src="list.png" alt="Rentals"></span>
+                <span>Rentals</span>
+            </a>
+            <a href="payments.html" class="nav-item">
+                <span class="icon"><img src="wallet-arrow.png" alt="Payments"></span>
+                <span>Payments</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="icon"><img src="settings.png" alt="Settings"></span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="search-bar">
+                <input type="text" placeholder="Search bikes, customers, rentals...">
+            </div>
+            <div class="header-right">
+                <button class="notification-btn"><img src="bell.png" alt="Notifications"></button>
+                <a href="settings.html" class="user-profile">
+                    <img src="profuser.png" alt="User Profile">
+                    <span>Admin</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="dashboard-content">
+            <h1>Dashboard Overview</h1>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card card-1">
+                    <div class="stat-icon">
+                        <span class="icon"><img src="bike-moving.png" alt="Bikes"></span>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Bikes</h3>
+                        <p class="stat-number" id="totalBikes">0</p>
+                        <span class="stat-change positive" id="bikesChange">+0 this month</span>
+                    </div>
+                </div>
+
+                <div class="stat-card card-2">
+                    <div class="stat-icon">
+                        <span class="icon"><img src="list.png" alt="Rentals"></span>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Active Rentals</h3>
+                        <p class="stat-number" id="activeRentals">0</p>
+                        <span class="stat-change positive" id="rentalsChange">+0 today</span>
+                    </div>
+                </div>
+
+                <div class="stat-card card-3">
+                    <div class="stat-icon">
+                        <span class="icon"><img src="users.png" alt="Customers"></span>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Customers</h3>
+                        <p class="stat-number" id="totalCustomers">0</p>
+                        <span class="stat-change positive" id="customersChange">+0 this week</span>
+                    </div>
+                </div>
+
+                <div class="stat-card card-4">
+                    <div class="stat-icon">
+                        <span class="icon"><img src="wallet-arrow.png" alt="Revenue"></span>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Revenue Today</h3>
+                        <p class="stat-number" id="revenueToday">₱0</p>
+                        <span class="stat-change positive" id="revenueChange">+0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tables Section -->
+            <div class="tables-section">
+                <!-- Recent Rentals -->
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Recent Rentals</h2>
+                        <a href="rentals.html" class="view-all-btn">View All</a>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Rental ID</th>
+                                <th>Customer</th>
+                                <th>Bike Model</th>
+                                <th>Start Date</th>
+                                <th>Return Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentRentalsTable">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 2rem; color: #7f8c8d;">
+                                    No rentals yet
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Available Bikes -->
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Available Bikes</h2>
+                        <a href="1.html" class="view-all-btn">View All</a>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Bike ID</th>
+                                <th>Model</th>
+                                <th>Type</th>
+                                <th>Condition</th>
+                                <th>Rate/Hour</th>
+                            </tr>
+                        </thead>
+                        <tbody id="availableBikesTable">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: #7f8c8d;">
+                                    No bikes available
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load shared bike database first -->
+    <script src="shared-bikes-data.js"></script>
+    <!-- Then load dashboard functionality -->
+    <script src="dashboard.js"></script>
+</body>
+</html>
