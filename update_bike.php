@@ -75,7 +75,10 @@ if ($rate !== null && $rate !== '') {
     $params[] = $rateVal;
 }
 
-if (empty($fields)) {
+// Determine if a photo upload is provided
+$hasPhoto = isset($_FILES['photo']) && is_array($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE;
+
+if (empty($fields) && $condition === '' && !$hasPhoto) {
     echo json_encode(['success' => false, 'error' => 'nothing_to_update']);
     sqlsrv_close($conn);
     exit;
@@ -87,12 +90,22 @@ $typeParam = in_array('bike_type = ?', $fields) ? ($params[array_search('bike_ty
 $statusParam = in_array('availability_status = ?', $fields) ? ($params[array_search('availability_status = ?', $fields)]) : null;
 $rateParam = in_array('hourly_rate = ?', $fields) ? ($params[array_search('hourly_rate = ?', $fields)]) : null;
 
-$sql = 'EXEC dbo.sp_UpdateBike @BikeID = ?, @Model = ?, @Type = ?, @Status = ?, @Rate = ?';
-$stmt = sqlsrv_query($conn, $sql, [$id, $modelParam, $typeParam, $statusParam, $rateParam]);
-if ($stmt === false) {
-    echo json_encode(['success' => false, 'error' => 'update_failed', 'detail' => sqlsrv_errors()]);
-    sqlsrv_close($conn);
-    exit;
+// Execute update only if any of the standard fields were provided
+if (!empty($fields)) {
+    $sql = 'EXEC dbo.sp_UpdateBike @BikeID = ?, @Model = ?, @Type = ?, @Status = ?, @Rate = ?';
+    $stmt = sqlsrv_query($conn, $sql, [$id, $modelParam, $typeParam, $statusParam, $rateParam]);
+    if ($stmt === false) {
+        // Fallback: perform a direct UPDATE when the procedure is missing or fails
+        $directSql = 'UPDATE dbo.Bike SET ' . implode(', ', $fields) . ' WHERE Bike_ID = ?';
+        $directParams = $params; // built above in same order as $fields
+        $directParams[] = $id;
+        $stmt2 = sqlsrv_query($conn, $directSql, $directParams);
+        if ($stmt2 === false) {
+            echo json_encode(['success' => false, 'error' => 'update_failed', 'detail' => sqlsrv_errors()]);
+            sqlsrv_close($conn);
+            exit;
+        }
+    }
 }
 
 // If a condition was provided, update it separately when column exists
@@ -103,6 +116,60 @@ if ($condition !== '') {
     // Ignore failure to retain compatibility if column not present
 }
 
+// If a photo file is provided, validate and save
+$photoUrl = null;
+$photoError = null;
+if ($hasPhoto) {
+    $file = $_FILES['photo'];
+    if ($file['error'] === UPLOAD_ERR_OK) {
+        $maxBytes = 5 * 1024 * 1024; // 5MB
+        if ($file['size'] > $maxBytes) {
+            $photoError = 'Image exceeds 5MB limit';
+        } else {
+            $finfo = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : false;
+            $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : ($file['type'] ?? '');
+            if ($finfo) finfo_close($finfo);
+            $allowed = [
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/gif'  => 'gif',
+                'image/webp' => 'webp',
+                'image/avif' => 'avif',
+            ];
+            if (!isset($allowed[$mime])) {
+                $photoError = 'Unsupported image type';
+            } else {
+                $ext = $allowed[$mime];
+                $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
+                if (!is_dir($uploadDir)) {
+                    @mkdir($uploadDir, 0775, true);
+                }
+                if (is_dir($uploadDir) && is_writable($uploadDir)) {
+                    foreach (['jpg','jpeg','png','gif','webp','avif'] as $e) {
+                        $old = $uploadDir . DIRECTORY_SEPARATOR . 'bike_' . $id . '.' . $e;
+                        if (file_exists($old)) { @unlink($old); }
+                    }
+                    $destFs = $uploadDir . DIRECTORY_SEPARATOR . 'bike_' . $id . '.' . $ext;
+                    if (move_uploaded_file($file['tmp_name'], $destFs)) {
+                        $photoUrl = 'uploads/' . 'bike_' . $id . '.' . $ext;
+                        $sqlPhoto = "IF COL_LENGTH('dbo.Bike','photo_url') IS NOT NULL UPDATE dbo.Bike SET photo_url = ? WHERE Bike_ID = ?";
+                        sqlsrv_query($conn, $sqlPhoto, [$photoUrl, $id]);
+                    } else {
+                        $photoError = 'Failed to save uploaded image';
+                    }
+                } else {
+                    $photoError = 'Uploads directory not writable';
+                }
+            }
+        }
+    } else {
+        $photoError = 'Upload failed (code ' . $file['error'] . ')';
+    }
+}
+
 sqlsrv_close($conn);
-echo json_encode(['success' => true]);
+$resp = ['success' => true];
+if ($photoUrl) $resp['photo_url'] = $photoUrl;
+if ($photoError) $resp['photo_error'] = $photoError;
+echo json_encode($resp);
 ?>

@@ -123,6 +123,9 @@ if ($insertedId && isset($_FILES['photo']) && is_array($_FILES['photo'])) {
                     if (move_uploaded_file($file['tmp_name'], $destFs)) {
                         // Build web path relative to this app root
                         $photoUrl = 'uploads/' . 'bike_' . $insertedId . '.' . $ext;
+                        // Persist to DB column if available
+                        $sqlPhoto = "IF COL_LENGTH('dbo.Bike','photo_url') IS NOT NULL UPDATE dbo.Bike SET photo_url = ? WHERE Bike_ID = ?";
+                        sqlsrv_query($conn, $sqlPhoto, [$photoUrl, $insertedId]);
                     } else {
                         $photoError = 'Failed to save uploaded image';
                     }

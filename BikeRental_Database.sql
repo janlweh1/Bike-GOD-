@@ -58,6 +58,7 @@ CREATE TABLE Bike (
     bike_type NVARCHAR(50),
     availability_status NVARCHAR(20),
     hourly_rate DECIMAL(10,2),
+    photo_url NVARCHAR(255) NULL,
     bike_condition NVARCHAR(20) NOT NULL CONSTRAINT DF_Bike_Condition DEFAULT ('Excellent'),
     date_added DATETIME DEFAULT GETDATE()
 );
@@ -792,6 +793,13 @@ BEGIN
 END
 GO
 
+-- Add photo_url to Bike if it doesn't exist
+IF COL_LENGTH('dbo.Bike','photo_url') IS NULL
+BEGIN
+    ALTER TABLE dbo.Bike ADD photo_url NVARCHAR(255) NULL;
+END
+GO
+
 -- 2) Update sp_ListBikes to include condition
 IF OBJECT_ID('dbo.sp_ListBikes', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ListBikes;
@@ -805,7 +813,8 @@ BEGIN
            bike_type,
            availability_status,
            hourly_rate,
-           bike_condition
+           bike_condition,
+           photo_url
     FROM dbo.Bike
     ORDER BY Bike_ID;
 END;
@@ -876,7 +885,8 @@ BEGIN
            bike_name_model,
            bike_type,
            availability_status,
-           hourly_rate
+           hourly_rate,
+           photo_url
     FROM dbo.Bike
     ORDER BY Bike_ID;
 END;

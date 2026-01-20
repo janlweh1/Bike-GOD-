@@ -294,6 +294,19 @@ async function handleEditBikeSubmit(e) {
     if (status) form.append('status', status);
     if (rate !== '') form.append('rate', String(rate));
     if (condition) form.append('condition', condition);
+    const editFileInput = document.getElementById('editBikeImage');
+    if (editFileInput && editFileInput.files && editFileInput.files[0]) {
+        const file = editFileInput.files[0];
+        if (!file.type.startsWith('image/')) {
+            alert('Selected file is not an image.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image is larger than 5MB.');
+            return;
+        }
+        form.append('photo', file);
+    }
     try {
         const res = await fetch('update_bike.php', { method: 'POST', body: form });
         const data = await res.json();

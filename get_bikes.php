@@ -31,15 +31,21 @@ if ($stmt === false) {
 $bikes = [];
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $id = (int)$row['Bike_ID'];
-    // Compute photo url from uploads/bike_{id}.* if present
+    // Prefer DB column if available; else fallback to filesystem probe for legacy setups
     $photoUrl = null;
-    $uploadDirFs = __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
-    if (is_dir($uploadDirFs)) {
-        foreach (['jpg','jpeg','png','gif','webp','avif'] as $ext) {
-            $candidate = $uploadDirFs . DIRECTORY_SEPARATOR . 'bike_' . $id . '.' . $ext;
-            if (file_exists($candidate)) {
-                $photoUrl = 'uploads/' . 'bike_' . $id . '.' . $ext;
-                break;
+    if (isset($row['photo_url'])) {
+        $photoUrl = $row['photo_url'];
+    } elseif (isset($row['PhotoUrl'])) {
+        $photoUrl = $row['PhotoUrl'];
+    } else {
+        $uploadDirFs = __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
+        if (is_dir($uploadDirFs)) {
+            foreach (['jpg','jpeg','png','gif','webp','avif'] as $ext) {
+                $candidate = $uploadDirFs . DIRECTORY_SEPARATOR . 'bike_' . $id . '.' . $ext;
+                if (file_exists($candidate)) {
+                    $photoUrl = 'uploads/' . 'bike_' . $id . '.' . $ext;
+                    break;
+                }
             }
         }
     }
