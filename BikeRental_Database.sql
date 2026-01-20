@@ -438,5 +438,298 @@ END;
 GO
 
 -- =============================================
+-- Pricing: Additional Charges Settings
+-- =============================================
+
+IF OBJECT_ID('dbo.PricingSettings', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PricingSettings (
+        Settings_ID INT PRIMARY KEY IDENTITY(1,1),
+        LateFeePerDay DECIMAL(10,2) NOT NULL DEFAULT 0,
+        DamageFeeMin DECIMAL(10,2) NOT NULL DEFAULT 0,
+        SecurityDeposit DECIMAL(10,2) NOT NULL DEFAULT 0,
+        TaxInclusive BIT NOT NULL DEFAULT 1,
+        UpdatedAt DATETIME NOT NULL DEFAULT GETDATE()
+    );
+    INSERT INTO dbo.PricingSettings (LateFeePerDay, DamageFeeMin, SecurityDeposit, TaxInclusive)
+    VALUES (200, 1000, 2000, 1);
+END
+GO
+
+IF OBJECT_ID('dbo.sp_GetPricingSettings', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetPricingSettings;
+GO
+CREATE PROCEDURE dbo.sp_GetPricingSettings
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 Settings_ID, LateFeePerDay, DamageFeeMin, SecurityDeposit, TaxInclusive, UpdatedAt
+    FROM dbo.PricingSettings
+    ORDER BY Settings_ID DESC;
+END;
+GO
+
+IF OBJECT_ID('dbo.sp_UpdatePricingSettings', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdatePricingSettings;
+GO
+CREATE PROCEDURE dbo.sp_UpdatePricingSettings
+    @LateFeePerDay DECIMAL(10,2),
+    @DamageFeeMin DECIMAL(10,2),
+    @SecurityDeposit DECIMAL(10,2),
+    @TaxInclusive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Id INT;
+    SELECT TOP 1 @Id = Settings_ID FROM dbo.PricingSettings ORDER BY Settings_ID DESC;
+    IF @Id IS NULL
+    BEGIN
+        INSERT INTO dbo.PricingSettings (LateFeePerDay, DamageFeeMin, SecurityDeposit, TaxInclusive)
+        VALUES (@LateFeePerDay, @DamageFeeMin, @SecurityDeposit, @TaxInclusive);
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.PricingSettings
+        SET LateFeePerDay = @LateFeePerDay,
+            DamageFeeMin = @DamageFeeMin,
+            SecurityDeposit = @SecurityDeposit,
+            TaxInclusive = @TaxInclusive,
+            UpdatedAt = GETDATE()
+        WHERE Settings_ID = @Id;
+    END
+END;
+GO
+
+-- =============================================
 -- Script Complete
 -- =============================================
+
+-- =============================================
+-- Compiled Sections from pricing_procs.sql
+-- =============================================
+-- Apply these procedures to your BikeRental database without dropping it
+USE BikeRental;
+GO
+
+-- Get average hourly rates by bike type
+IF OBJECT_ID('dbo.sp_GetRatesByType', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetRatesByType;
+GO
+CREATE PROCEDURE dbo.sp_GetRatesByType
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT bike_type, AVG(hourly_rate) AS rate
+    FROM Bike
+    GROUP BY bike_type;
+END;
+GO
+
+-- Update hourly rate for all bikes of a given type
+IF OBJECT_ID('dbo.sp_UpdateRateByType', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateRateByType;
+GO
+CREATE PROCEDURE dbo.sp_UpdateRateByType
+    @BikeType NVARCHAR(50),
+    @Rate DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Bike
+    SET hourly_rate = @Rate
+    WHERE bike_type = @BikeType;
+END;
+GO
+
+-- =============================================
+-- Compiled Sections from PricingSettings_Update.sql
+-- =============================================
+USE BikeRental;
+GO
+
+IF OBJECT_ID('dbo.PricingSettings', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PricingSettings (
+        Settings_ID INT PRIMARY KEY IDENTITY(1,1),
+        LateFeePerDay DECIMAL(10,2) NOT NULL DEFAULT 0,
+        DamageFeeMin DECIMAL(10,2) NOT NULL DEFAULT 0,
+        SecurityDeposit DECIMAL(10,2) NOT NULL DEFAULT 0,
+        TaxInclusive BIT NOT NULL DEFAULT 1,
+        UpdatedAt DATETIME NOT NULL DEFAULT GETDATE()
+    );
+    INSERT INTO dbo.PricingSettings (LateFeePerDay, DamageFeeMin, SecurityDeposit, TaxInclusive)
+    VALUES (200, 1000, 2000, 1);
+END
+GO
+
+IF OBJECT_ID('dbo.sp_GetPricingSettings', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetPricingSettings;
+GO
+CREATE PROCEDURE dbo.sp_GetPricingSettings
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 Settings_ID, LateFeePerDay, DamageFeeMin, SecurityDeposit, TaxInclusive, UpdatedAt
+    FROM dbo.PricingSettings
+    ORDER BY Settings_ID DESC;
+END;
+GO
+
+IF OBJECT_ID('dbo.sp_UpdatePricingSettings', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdatePricingSettings;
+GO
+CREATE PROCEDURE dbo.sp_UpdatePricingSettings
+    @LateFeePerDay DECIMAL(10,2),
+    @DamageFeeMin DECIMAL(10,2),
+    @SecurityDeposit DECIMAL(10,2),
+    @TaxInclusive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Id INT;
+    SELECT TOP 1 @Id = Settings_ID FROM dbo.PricingSettings ORDER BY Settings_ID DESC;
+    IF @Id IS NULL
+    BEGIN
+        INSERT INTO dbo.PricingSettings (LateFeePerDay, DamageFeeMin, SecurityDeposit, TaxInclusive)
+        VALUES (@LateFeePerDay, @DamageFeeMin, @SecurityDeposit, @TaxInclusive);
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.PricingSettings
+        SET LateFeePerDay = @LateFeePerDay,
+            DamageFeeMin = @DamageFeeMin,
+            SecurityDeposit = @SecurityDeposit,
+            TaxInclusive = @TaxInclusive,
+            UpdatedAt = GETDATE()
+        WHERE Settings_ID = @Id;
+    END
+END;
+GO
+
+-- =============================================
+-- Compiled Sections from BusinessInfo_Update.sql
+-- =============================================
+USE BikeRental;
+GO
+
+-- Create BusinessInfo table if it doesn't exist
+IF OBJECT_ID('dbo.BusinessInfo', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.BusinessInfo (
+        BusinessInfo_ID INT IDENTITY(1,1) PRIMARY KEY,
+        BusinessName NVARCHAR(200) NOT NULL DEFAULT '',
+        Address NVARCHAR(500) NOT NULL DEFAULT '',
+        Phone NVARCHAR(50) NOT NULL DEFAULT '',
+        Email NVARCHAR(150) NOT NULL DEFAULT '',
+        Website NVARCHAR(200) NOT NULL DEFAULT '',
+        TIN NVARCHAR(50) NOT NULL DEFAULT '',
+        WeekdaysOpen TIME NULL,
+        WeekdaysClose TIME NULL,
+        SaturdayOpen TIME NULL,
+        SaturdayClose TIME NULL,
+        SundayOpen TIME NULL,
+        SundayClose TIME NULL,
+        UpdatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+        UpdatedBy INT NULL
+    );
+    INSERT INTO dbo.BusinessInfo (BusinessName, Address, Phone, Email, Website, TIN)
+    VALUES (N'BikeRental Inc.', N'123 Bike Street, Manila, Metro Manila, Philippines 1000', N'+63 912 345 6789', N'info@bikerental.com', N'www.bikerental.com', N'');
+END
+GO
+
+-- Get Business Info
+IF OBJECT_ID('dbo.sp_GetBusinessInfo', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetBusinessInfo;
+GO
+CREATE PROCEDURE dbo.sp_GetBusinessInfo
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 
+        BusinessInfo_ID,
+        BusinessName,
+        Address,
+        Phone,
+        Email,
+        Website,
+        TIN,
+        WeekdaysOpen,
+        WeekdaysClose,
+        SaturdayOpen,
+        SaturdayClose,
+        SundayOpen,
+        SundayClose,
+        UpdatedAt,
+        UpdatedBy
+    FROM dbo.BusinessInfo
+    ORDER BY BusinessInfo_ID DESC;
+END;
+GO
+
+-- Upsert Business Info
+IF OBJECT_ID('dbo.sp_UpdateBusinessInfo', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateBusinessInfo;
+GO
+CREATE PROCEDURE dbo.sp_UpdateBusinessInfo
+    @BusinessName NVARCHAR(200),
+    @Address NVARCHAR(500),
+    @Phone NVARCHAR(50),
+    @Email NVARCHAR(150),
+    @Website NVARCHAR(200),
+    @TIN NVARCHAR(50),
+    @WeekdaysOpen NVARCHAR(10) = NULL, -- 'HH:MM'
+    @WeekdaysClose NVARCHAR(10) = NULL,
+    @SaturdayOpen NVARCHAR(10) = NULL,
+    @SaturdayClose NVARCHAR(10) = NULL,
+    @SundayOpen NVARCHAR(10) = NULL,
+    @SundayClose NVARCHAR(10) = NULL,
+    @UpdatedBy INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Id INT;
+    SELECT TOP 1 @Id = BusinessInfo_ID FROM dbo.BusinessInfo ORDER BY BusinessInfo_ID DESC;
+
+    DECLARE 
+        @wOpen TIME = TRY_CONVERT(TIME, @WeekdaysOpen),
+        @wClose TIME = TRY_CONVERT(TIME, @WeekdaysClose),
+        @sOpen TIME = TRY_CONVERT(TIME, @SaturdayOpen),
+        @sClose TIME = TRY_CONVERT(TIME, @SaturdayClose),
+        @suOpen TIME = TRY_CONVERT(TIME, @SundayOpen),
+        @suClose TIME = TRY_CONVERT(TIME, @SundayClose);
+
+    IF @Id IS NULL
+    BEGIN
+        INSERT INTO dbo.BusinessInfo (
+            BusinessName, Address, Phone, Email, Website, TIN,
+            WeekdaysOpen, WeekdaysClose, SaturdayOpen, SaturdayClose,
+            SundayOpen, SundayClose, UpdatedAt, UpdatedBy
+        )
+        VALUES (
+            @BusinessName, @Address, @Phone, @Email, @Website, @TIN,
+            @wOpen, @wClose, @sOpen, @sClose,
+            @suOpen, @suClose, GETDATE(), @UpdatedBy
+        );
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.BusinessInfo
+        SET BusinessName = @BusinessName,
+            Address = @Address,
+            Phone = @Phone,
+            Email = @Email,
+            Website = @Website,
+            TIN = @TIN,
+            WeekdaysOpen = @wOpen,
+            WeekdaysClose = @wClose,
+            SaturdayOpen = @sOpen,
+            SaturdayClose = @sClose,
+            SundayOpen = @suOpen,
+            SundayClose = @suClose,
+            UpdatedAt = GETDATE(),
+            UpdatedBy = @UpdatedBy
+        WHERE BusinessInfo_ID = @Id;
+    END
+END;
+GO
+

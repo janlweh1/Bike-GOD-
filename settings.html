@@ -327,21 +327,38 @@
 
                 <div class="settings-card">
                     <h3>Additional Charges</h3>
-                    <div class="form-group">
-                        <label>Late Fee (per day)</label>
-                        <input type="number" value="200" placeholder="Amount">
-                    </div>
-                    <div class="form-group">
-                        <label>Damage Fee (minimum)</label>
-                        <input type="number" value="1000" placeholder="Amount">
-                    </div>
-                    <div class="form-group">
-                        <label>Security Deposit</label>
-                        <input type="number" value="2000" placeholder="Amount">
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="tax-inclusive" checked>
-                        <label for="tax-inclusive">Prices are tax-inclusive</label>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Charge</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="chargesBody">
+                                <tr>
+                                    <td>Late Fee (per day)</td>
+                                    <td><input type="number" step="0.01" min="0" id="chargeLate" value="200" placeholder="Amount"></td>
+                                </tr>
+                                <tr>
+                                    <td>Damage Fee (minimum)</td>
+                                    <td><input type="number" step="0.01" min="0" id="chargeDamage" value="1000" placeholder="Amount"></td>
+                                </tr>
+                                <tr>
+                                    <td>Security Deposit</td>
+                                    <td><input type="number" step="0.01" min="0" id="chargeDeposit" value="2000" placeholder="Amount"></td>
+                                </tr>
+                                <tr>
+                                    <td>Tax Inclusive</td>
+                                    <td>
+                                        <label style="display:flex;align-items:center;gap:8px;">
+                                            <input type="checkbox" id="tax-inclusive" checked>
+                                            <span>Prices are tax-inclusive</span>
+                                        </label>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                     <button class="secondary-btn" onclick="saveCharges()">Save Charges</button>
                 </div>
@@ -551,6 +568,7 @@
         // Initialize settings data from backend and name display
         window.addEventListener('DOMContentLoaded', function() {
             loadAdminFromBackend();
+            loadBusinessInfoFromBackend();
             updateNameDisplay();
         });
 
@@ -735,8 +753,8 @@
             alert('Rental settings saved.');
         }
 
-        // Save Business Info
-        function saveBusinessInfo() {
+        // Save Business Info (persists to backend + caches locally)
+        async function saveBusinessInfo() {
             const section = document.getElementById('business');
             const name = section.querySelector('input[placeholder="Enter business name"]').value.trim();
             const address = section.querySelector('textarea').value.trim();
@@ -750,26 +768,93 @@
                 saturday: { from: hourRows[1].querySelectorAll('input')[0].value, to: hourRows[1].querySelectorAll('input')[1].value },
                 sunday: { from: hourRows[2].querySelectorAll('input')[0].value, to: hourRows[2].querySelectorAll('input')[1].value },
             };
-            const settings = getSettings();
-            settings.business = { name, address, phone, email, website, tin, hours };
-            setSettings(settings);
-            alert('Business information saved.');
+            if (!name) { alert('Please enter business name.'); return; }
+            try {
+                const res = await fetch('update_business_info.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, address, phone, email, website, tin, hours })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    let msg = data.error ? `Failed to save: ${data.error}` : 'Failed to save business info.';
+                    if (data.detail) {
+                        try {
+                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
+                            if (err) msg += `\nDetails: ${err}`;
+                        } catch {}
+                    }
+                    alert(msg);
+                    return;
+                }
+                const settings = getSettings();
+                settings.business = { name, address, phone, email, website, tin, hours };
+                setSettings(settings);
+                alert('Business information saved to database.');
+            } catch (e) {
+                alert('Failed to save business info. ' + (e && e.message ? e.message : ''));
+            }
         }
 
-        // Save only Charges (kept local for now)
-        function saveCharges() {
-            const section = document.getElementById('pricing');
-            // Charges card is the second card in the pricing section
-            const chargesCard = section.querySelectorAll('.settings-card')[1];
-            const lateFee = parseFloat(chargesCard.querySelectorAll('input')[0].value) || 0;
-            const damageFee = parseFloat(chargesCard.querySelectorAll('input')[1].value) || 0;
-            const deposit = parseFloat(chargesCard.querySelectorAll('input')[2].value) || 0;
+        // Load Business Info from backend into form
+        async function loadBusinessInfoFromBackend() {
+            const section = document.getElementById('business');
+            try {
+                const res = await fetch('get_business_info.php');
+                const data = await res.json();
+                if (!data.success || !data.business) return;
+                const b = data.business;
+                section.querySelector('input[placeholder="Enter business name"]').value = b.name || section.querySelector('input[placeholder="Enter business name"]').value;
+                section.querySelector('textarea').value = b.address || section.querySelector('textarea').value;
+                section.querySelector('input[type="tel"]').value = b.phone || section.querySelector('input[type="tel"]').value;
+                section.querySelector('input[type="email"]').value = b.email || section.querySelector('input[type="email"]').value;
+                section.querySelector('input[type="url"]').value = b.website || section.querySelector('input[type="url"]').value;
+                section.querySelector('input[placeholder="Enter TIN"]').value = b.tin || section.querySelector('input[placeholder="Enter TIN"]').value;
+                const hourRows = section.querySelectorAll('.hour-row');
+                if (b.hours) {
+                    hourRows[0].querySelectorAll('input')[0].value = b.hours.weekdays?.from || hourRows[0].querySelectorAll('input')[0].value;
+                    hourRows[0].querySelectorAll('input')[1].value = b.hours.weekdays?.to || hourRows[0].querySelectorAll('input')[1].value;
+                    hourRows[1].querySelectorAll('input')[0].value = b.hours.saturday?.from || hourRows[1].querySelectorAll('input')[0].value;
+                    hourRows[1].querySelectorAll('input')[1].value = b.hours.saturday?.to || hourRows[1].querySelectorAll('input')[1].value;
+                    hourRows[2].querySelectorAll('input')[0].value = b.hours.sunday?.from || hourRows[2].querySelectorAll('input')[0].value;
+                    hourRows[2].querySelectorAll('input')[1].value = b.hours.sunday?.to || hourRows[2].querySelectorAll('input')[1].value;
+                }
+                // Cache locally
+                const settings = getSettings();
+                settings.business = b;
+                setSettings(settings);
+            } catch {}
+        }
+
+        // Save Charges to DB
+        async function saveCharges() {
+            const lateFee = parseFloat(document.getElementById('chargeLate').value) || 0;
+            const damageFee = parseFloat(document.getElementById('chargeDamage').value) || 0;
+            const deposit = parseFloat(document.getElementById('chargeDeposit').value) || 0;
             const taxInclusive = document.getElementById('tax-inclusive').checked;
-            const s = getSettings();
-            s.pricing = s.pricing || {};
-            s.pricing.charges = { lateFee, damageFee, deposit, taxInclusive };
-            setSettings(s);
-            alert('Charges saved.');
+            try {
+                const res = await fetch('update_charges.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ late_fee: lateFee, damage_fee: damageFee, deposit, tax_inclusive: taxInclusive })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    let msg = data.error ? `Failed to save charges: ${data.error}` : 'Failed to save charges.';
+                    if (data.detail) {
+                        try {
+                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
+                            if (err) msg += `\nDetails: ${err}`;
+                        } catch {}
+                    }
+                    alert(msg);
+                    return;
+                }
+                alert('Charges saved to database.');
+            } catch (e) {
+                console.error('Save charges exception:', e);
+                alert('Failed to save charges. ' + (e && e.message ? e.message : 'Please check server/DB.'));
+            }
         }
 
         // Save Security settings
@@ -862,16 +947,17 @@
             }
             // Pricing: rates are shown via the table below; loaded in loadBikeRates()
             // Charges remain local-only for now
-            if (s.pricing) {
-                const section = document.getElementById('pricing');
-                const chargesCard = section.querySelectorAll('.settings-card')[1];
-                if (s.pricing.charges) {
-                    chargesCard.querySelectorAll('input')[0].value = s.pricing.charges.lateFee ?? chargesCard.querySelectorAll('input')[0].value;
-                    chargesCard.querySelectorAll('input')[1].value = s.pricing.charges.damageFee ?? chargesCard.querySelectorAll('input')[1].value;
-                    chargesCard.querySelectorAll('input')[2].value = s.pricing.charges.deposit ?? chargesCard.querySelectorAll('input')[2].value;
-                    document.getElementById('tax-inclusive').checked = !!s.pricing.charges.taxInclusive;
+            // Load Charges from DB
+            try {
+                const res = await fetch('get_charges.php');
+                const data = await res.json();
+                if (data.success && data.charges) {
+                    document.getElementById('chargeLate').value = data.charges.late_fee;
+                    document.getElementById('chargeDamage').value = data.charges.damage_fee;
+                    document.getElementById('chargeDeposit').value = data.charges.deposit;
+                    document.getElementById('tax-inclusive').checked = !!data.charges.tax_inclusive;
                 }
-            }
+            } catch {}
             // Security
             if (s.security) {
                 const section = document.getElementById('security');
