@@ -981,6 +981,186 @@ GO
 IF OBJECT_ID('dbo.sp_UpdateBusinessInfo', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateBusinessInfo;
 GO
+
+-- =============================================
+-- Compiled Sections from Payments_Update.sql
+-- Adds Payments table if missing; safe to run multiple times
+-- =============================================
+USE BikeRental;
+GO
+
+IF OBJECT_ID('dbo.Payments', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Payments (
+        Payment_ID INT IDENTITY(1,1) PRIMARY KEY,
+        transaction_id NVARCHAR(50) NOT NULL,
+        rental_id INT NOT NULL,
+        member_id INT NULL,
+        payment_method NVARCHAR(20) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        status NVARCHAR(20) NOT NULL,
+        payment_date DATETIME NOT NULL,
+        notes NVARCHAR(500) NULL,
+        CreatedAt DATETIME NOT NULL DEFAULT GETDATE()
+    );
+    -- Optional foreign keys; enable if your schema uses these relationships
+    -- ALTER TABLE dbo.Payments ADD CONSTRAINT FK_Payments_Rentals FOREIGN KEY (rental_id) REFERENCES dbo.Rentals(Rental_ID);
+    -- ALTER TABLE dbo.Payments ADD CONSTRAINT FK_Payments_Member FOREIGN KEY (member_id) REFERENCES dbo.Member(Member_ID);
+
+    -- Indexes for performance and integrity
+    CREATE UNIQUE INDEX IX_Payments_TransactionId ON dbo.Payments(transaction_id);
+    CREATE INDEX IX_Payments_RentalId ON dbo.Payments(rental_id);
+    CREATE INDEX IX_Payments_Status ON dbo.Payments(status);
+    CREATE INDEX IX_Payments_PaymentDate ON dbo.Payments(payment_date);
+END
+GO
+
+-- Add foreign keys if not already present
+IF OBJECT_ID('dbo.Payments', 'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Payments_Rentals')
+    BEGIN
+        ALTER TABLE dbo.Payments ADD CONSTRAINT FK_Payments_Rentals FOREIGN KEY (rental_id)
+        REFERENCES dbo.Rentals(Rental_ID);
+    END
+    IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Payments_Member')
+    BEGIN
+        ALTER TABLE dbo.Payments ADD CONSTRAINT FK_Payments_Member FOREIGN KEY (member_id)
+        REFERENCES dbo.Member(Member_ID);
+    END
+END
+GO
+
+-- Add integrity constraints and filtered unique index
+IF OBJECT_ID('dbo.Payments', 'U') IS NOT NULL
+BEGIN
+    -- Ensure positive amount
+    IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Payments_Amount_Positive')
+    BEGIN
+        ALTER TABLE dbo.Payments ADD CONSTRAINT CK_Payments_Amount_Positive CHECK (amount > 0);
+    END
+    -- Only one completed payment per rental
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_Payments_Rental_Completed' AND object_id = OBJECT_ID('dbo.Payments'))
+    BEGIN
+        CREATE UNIQUE INDEX UX_Payments_Rental_Completed ON dbo.Payments(rental_id) WHERE status = 'completed';
+    END
+END
+GO
+
+-- Stored Procedure: Record Payment
+IF OBJECT_ID('dbo.sp_RecordPayment', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_RecordPayment;
+GO
+CREATE PROCEDURE dbo.sp_RecordPayment
+    @TransactionId NVARCHAR(50),
+    @RentalId INT,
+    @Amount DECIMAL(10,2),
+    @PaymentMethod NVARCHAR(20),
+    @Status NVARCHAR(20),
+    @PaymentDate NVARCHAR(30), -- 'YYYY-MM-DD HH:MM'
+    @Notes NVARCHAR(500) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate rental
+    IF NOT EXISTS (SELECT 1 FROM dbo.Rentals WHERE Rental_ID = @RentalId)
+    BEGIN
+        RAISERROR('Rental not found', 16, 1);
+        RETURN;
+    END
+
+    -- Validate datetime
+    DECLARE @PaymentDt datetime = TRY_CONVERT(datetime, @PaymentDate);
+    IF @PaymentDt IS NULL
+    BEGIN
+        RAISERROR('Invalid payment date/time', 16, 1);
+        RETURN;
+    END
+
+    -- Enforce unique transaction id
+    IF EXISTS (SELECT 1 FROM dbo.Payments WHERE transaction_id = @TransactionId)
+    BEGIN
+        RAISERROR('Duplicate transaction ID', 16, 1);
+        RETURN;
+    END
+
+    -- Only one completed payment per rental
+    IF LOWER(@Status) = 'completed' AND EXISTS (
+        SELECT 1 FROM dbo.Payments WHERE rental_id = @RentalId AND status = 'completed'
+    )
+    BEGIN
+        RAISERROR('Payment already completed for this rental', 16, 1);
+        RETURN;
+    END
+
+    -- Compute expected amount when completing payment
+    IF LOWER(@Status) = 'completed'
+    BEGIN
+        DECLARE @StartDt datetime, @EndDt datetime, @Rate DECIMAL(10,2), @DurationHours INT, @Expected DECIMAL(18,2);
+
+        SELECT 
+            @StartDt = CONVERT(datetime, CONCAT(CONVERT(varchar(10), r.rental_date, 120), ' ', CONVERT(varchar(8), r.rental_time, 108))),
+            @Rate = CAST(b.hourly_rate AS DECIMAL(10,2))
+        FROM dbo.Rentals r
+        INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+        WHERE r.Rental_ID = @RentalId;
+
+        -- Prefer actual return; fallback to payment datetime
+        SELECT TOP 1 @EndDt = CONVERT(datetime, CONCAT(CONVERT(varchar(10), x.return_date, 120), ' ', CONVERT(varchar(8), x.return_time, 108)))
+        FROM dbo.Returns x
+        WHERE x.rental_id = @RentalId
+        ORDER BY x.Return_ID DESC;
+
+        IF @EndDt IS NULL SET @EndDt = @PaymentDt;
+
+        SET @DurationHours = NULLIF(DATEDIFF(HOUR, @StartDt, @EndDt), 0);
+        IF @DurationHours IS NULL OR @DurationHours < 1 SET @DurationHours = 1;
+        SET @Expected = ROUND(@Rate * @DurationHours, 2);
+
+        IF ABS(@Amount - @Expected) > 0.01
+        BEGIN
+            RAISERROR('Amount does not match expected rental cost', 16, 1);
+            RETURN;
+        END
+    END
+
+    DECLARE @MemberId INT = NULL;
+    SELECT @MemberId = r.member_id FROM dbo.Rentals r WHERE r.Rental_ID = @RentalId;
+
+    INSERT INTO dbo.Payments (
+        transaction_id, rental_id, member_id, payment_method, amount, status, payment_date, notes, CreatedAt
+    ) VALUES (
+        @TransactionId,
+        @RentalId,
+        @MemberId,
+        @PaymentMethod,
+        @Amount,
+        LOWER(@Status),
+        @PaymentDt,
+        NULLIF(@Notes, ''),
+        GETDATE()
+    );
+END;
+GO
+
+-- Stored Procedure: List Payments (latest first)
+IF OBJECT_ID('dbo.sp_ListPayments', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ListPayments;
+GO
+CREATE PROCEDURE dbo.sp_ListPayments
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 200 p.Payment_ID, p.transaction_id, p.payment_date, p.rental_id,
+           p.payment_method, p.amount, p.status,
+           m.first_name, m.last_name
+    FROM dbo.Payments p
+    LEFT JOIN dbo.Rentals r ON r.Rental_ID = p.rental_id
+    LEFT JOIN dbo.Member m ON m.Member_ID = r.member_id
+    ORDER BY p.Payment_ID DESC;
+END;
+GO
 CREATE PROCEDURE dbo.sp_UpdateBusinessInfo
     @BusinessName NVARCHAR(200),
     @Address NVARCHAR(500),

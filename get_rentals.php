@@ -2,8 +2,12 @@
 // Returns rentals list and summary for admin rentals page
 session_start();
 header('Content-Type: application/json');
-// Allow reading rentals regardless of session for now
-// If you want to restrict, check_session.php can gate access.
+// Restrict to admin users only
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit();
+}
 
 require_once __DIR__ . '/db_config.php';
 $conn = getConnection();
@@ -76,15 +80,14 @@ try {
             $actualEndDt = new DateTime($actualReturnDate->format('Y-m-d') . ' ' . ($actualReturnTime instanceof DateTime ? $actualReturnTime->format('H:i:s') : '00:00:00'));
         }
 
-        // Compute duration hours: prefer planned for ongoing, actual for completed
-        $durationHours = 0;
-        if ($actualEndDt && $startDt) {
-            $durationHours = max(1, (int)round(($actualEndDt->getTimestamp() - $startDt->getTimestamp()) / 3600));
-        } elseif ($plannedEndDt && $startDt) {
-            $durationHours = max(1, (int)round(($plannedEndDt->getTimestamp() - $startDt->getTimestamp()) / 3600));
-        } elseif ($startDt) {
-            // Fallback: duration to now
-            $durationHours = max(1, (int)round(($now->getTimestamp() - $startDt->getTimestamp()) / 3600));
+        // Compute duration hours using floor semantics (align with billing logic):
+        // use actual end if available; else planned end for ongoing; else now
+        $durationHours = 1;
+        $endRef = $actualEndDt ?: ($plannedEndDt ?: $now);
+        if ($startDt && $endRef) {
+            $diffSecs = max(0, $endRef->getTimestamp() - $startDt->getTimestamp());
+            $durationHours = (int)floor($diffSecs / 3600);
+            if ($durationHours < 1) { $durationHours = 1; }
         }
 
         // Compute cost using bike hourly rate
