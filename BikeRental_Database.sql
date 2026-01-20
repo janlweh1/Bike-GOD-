@@ -412,5 +412,31 @@ END;
 GO
 
 -- =============================================
+-- Pricing: Per-Bike Procedures
+-- =============================================
+
+-- List bikes with hourly rates
+CREATE PROCEDURE sp_ListBikesRates
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT Bike_ID, bike_name_model, bike_type, hourly_rate
+    FROM Bike
+    ORDER BY Bike_ID;
+END;
+GO
+
+-- Update a single bike's hourly rate
+CREATE PROCEDURE sp_UpdateBikeRate
+    @BikeID INT,
+    @Rate DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Bike SET hourly_rate = @Rate WHERE Bike_ID = @BikeID;
+END;
+GO
+
+-- =============================================
 -- Script Complete
 -- =============================================

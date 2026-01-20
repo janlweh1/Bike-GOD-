@@ -307,34 +307,22 @@
 
                 <div class="settings-card">
                     <h3>Default Rental Rates</h3>
-                    <div class="pricing-table">
-                        <div class="pricing-row">
-                            <span class="bike-type">Mountain Bike</span>
-                            <input type="number" value="500" placeholder="Rate">
-                            <span class="per-unit">per hour</span>
-                        </div>
-                        <div class="pricing-row">
-                            <span class="bike-type">City Bike</span>
-                            <input type="number" value="350" placeholder="Rate">
-                            <span class="per-unit">per hour</span>
-                        </div>
-                        <div class="pricing-row">
-                            <span class="bike-type">Road Bike</span>
-                            <input type="number" value="600" placeholder="Rate">
-                            <span class="per-unit">per hour</span>
-                        </div>
-                        <div class="pricing-row">
-                            <span class="bike-type">Electric Bike</span>
-                            <input type="number" value="800" placeholder="Rate">
-                            <span class="per-unit">per hour</span>
-                        </div>
-                        <div class="pricing-row">
-                            <span class="bike-type">BMX Bike</span>
-                            <input type="number" value="400" placeholder="Rate">
-                            <span class="per-unit">per hour</span>
-                        </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Bike ID</th>
+                                    <th>Model</th>
+                                    <th>Type</th>
+                                    <th>Hourly Rate</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bikeRatesBody">
+                                <tr><td colspan="5">Loading...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <button class="secondary-btn" onclick="savePricingSettings()">Save Rates</button>
                 </div>
 
                 <div class="settings-card">
@@ -355,8 +343,9 @@
                         <input type="checkbox" id="tax-inclusive" checked>
                         <label for="tax-inclusive">Prices are tax-inclusive</label>
                     </div>
-                    <button class="secondary-btn" onclick="savePricingSettings()">Save Charges</button>
+                    <button class="secondary-btn" onclick="saveCharges()">Save Charges</button>
                 </div>
+                
             </div>
 
             <!-- Notifications -->
@@ -767,41 +756,20 @@
             alert('Business information saved.');
         }
 
-        // Save Pricing & Charges
-        async function savePricingSettings() {
+        // Save only Charges (kept local for now)
+        function saveCharges() {
             const section = document.getElementById('pricing');
-            const rows = section.querySelectorAll('.pricing-row');
-            const map = {
-                'Mountain Bike': parseFloat(rows[0].querySelector('input').value) || 0,
-                'City Bike': parseFloat(rows[1].querySelector('input').value) || 0,
-                'Road Bike': parseFloat(rows[2].querySelector('input').value) || 0,
-                'Electric Bike': parseFloat(rows[3].querySelector('input').value) || 0,
-                'BMX Bike': parseFloat(rows[4].querySelector('input').value) || 0,
-            };
-            try {
-                const res = await fetch('update_pricing.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rates: map })
-                });
-                const data = await res.json();
-                if (!data.success) {
-                    console.error('Save pricing failed:', data);
-                    let msg = data.error ? `Failed to save pricing: ${data.error}` : 'Failed to save pricing.';
-                    if (data.detail) {
-                        try {
-                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
-                            if (err) msg += `\nDetails: ${err}`;
-                        } catch {}
-                    }
-                    alert(msg);
-                    return;
-                }
-                alert('Pricing saved to database.');
-            } catch (e) {
-                console.error('Save pricing exception:', e);
-                alert('Failed to save pricing. Please check server/DB.');
-            }
+            // Charges card is the second card in the pricing section
+            const chargesCard = section.querySelectorAll('.settings-card')[1];
+            const lateFee = parseFloat(chargesCard.querySelectorAll('input')[0].value) || 0;
+            const damageFee = parseFloat(chargesCard.querySelectorAll('input')[1].value) || 0;
+            const deposit = parseFloat(chargesCard.querySelectorAll('input')[2].value) || 0;
+            const taxInclusive = document.getElementById('tax-inclusive').checked;
+            const s = getSettings();
+            s.pricing = s.pricing || {};
+            s.pricing.charges = { lateFee, damageFee, deposit, taxInclusive };
+            setSettings(s);
+            alert('Charges saved.');
         }
 
         // Save Security settings
@@ -892,22 +860,7 @@
                     hourRows[2].querySelectorAll('input')[1].value = s.business.hours.sunday?.to || hourRows[2].querySelectorAll('input')[1].value;
                 }
             }
-            // Pricing: load from DB if available
-            try {
-                const res = await fetch('get_pricing.php');
-                const data = await res.json();
-                if (data.success) {
-                    const section = document.getElementById('pricing');
-                    const rows = section.querySelectorAll('.pricing-row');
-                    const rates = data.rates || {};
-                    const setIf = (idx, name) => { if (rates[name] != null) rows[idx].querySelector('input').value = rates[name]; };
-                    setIf(0, 'Mountain Bike');
-                    setIf(1, 'City Bike');
-                    setIf(2, 'Road Bike');
-                    setIf(3, 'Electric Bike');
-                    setIf(4, 'BMX Bike');
-                }
-            } catch {}
+            // Pricing: rates are shown via the table below; loaded in loadBikeRates()
             // Charges remain local-only for now
             if (s.pricing) {
                 const section = document.getElementById('pricing');
@@ -927,6 +880,8 @@
                 document.getElementById('login-notification').checked = !!s.security.loginNotification;
                 section.querySelector('select').value = s.security.sessionTimeout ?? section.querySelector('select').value;
             }
+            // Load per-bike rates
+            await loadBikeRates();
         }
 
         // Boot
@@ -934,6 +889,99 @@
             loadSavedSettings();
             disableNotifications();
         });
+
+        // Simple HTML escaping to prevent injection in dynamic content
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+        }
+
+        // Helper to flatten backend error objects/arrays into readable text
+        function describeBackendError(data) {
+            if (!data || typeof data !== 'object') return '';
+            let msg = '';
+            if (data.error) msg = String(data.error);
+            if (data.detail) {
+                try {
+                    if (Array.isArray(data.detail)) {
+                        const parts = data.detail.map(e => {
+                            const state = e.SQLSTATE || e.sqlstate || '';
+                            const code = e.code || e.SQLCODE || '';
+                            const text = e.message || e.Message || '';
+                            return [state, code, text].filter(Boolean).join(' ');
+                        }).filter(Boolean);
+                        if (parts.length) msg += (msg ? ' ' : '') + parts.join('; ');
+                    } else if (typeof data.detail === 'string') {
+                        msg += (msg ? ' ' : '') + data.detail;
+                    } else {
+                        msg += (msg ? ' ' : '') + JSON.stringify(data.detail);
+                    }
+                } catch {}
+            }
+            return msg.trim();
+        }
+
+        async function loadBikeRates() {
+            const tbody = document.getElementById('bikeRatesBody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+            try {
+                const res = await fetch('get_bikes.php');
+                const data = await res.json();
+                if (!data.success) {
+                    const detail = describeBackendError(data);
+                    tbody.innerHTML = `<tr><td colspan="5">Failed to load bikes${detail ? ': ' + escapeHtml(detail) : ''}.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = '';
+                data.bikes.forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${b.id}</td>
+                        <td>${escapeHtml(b.model || '')}</td>
+                        <td>${escapeHtml(b.type || '')}</td>
+                        <td><input type="number" step="0.01" min="0" value="${b.hourly_rate}" data-bike-id="${b.id}" style="width:120px"></td>
+                        <td><button class="secondary-btn" onclick="saveBikeRate(${b.id})">Save</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error('Failed to load bike rates', e);
+                tbody.innerHTML = `<tr><td colspan="5">Failed to load bikes: ${escapeHtml(e.message || 'unknown error')}</td></tr>`;
+            }
+        }
+
+
+        async function saveBikeRate(bikeId) {
+            const input = document.querySelector(`input[data-bike-id='${bikeId}']`);
+            const rate = parseFloat(input.value);
+            if (isNaN(rate) || rate < 0) {
+                alert('Please enter a valid hourly rate.');
+                return;
+            }
+            try {
+                const res = await fetch('update_bike_rate.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bike_id: bikeId, rate })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    let msg = data.error ? `Failed to update: ${data.error}` : 'Failed to update rate.';
+                    if (data.detail) {
+                        try {
+                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
+                            if (err) msg += `\nDetails: ${err}`;
+                        } catch {}
+                    }
+                    alert(msg);
+                    return;
+                }
+                alert('Rate updated successfully.');
+            } catch (e) {
+                console.error('Update rate exception', e);
+                alert('Failed to update rate.');
+            }
+        }
     </script>
 </body>
 </html>
