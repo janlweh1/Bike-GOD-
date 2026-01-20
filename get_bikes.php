@@ -9,7 +9,7 @@ if ($conn === false) {
     exit;
 }
 
-$sql = "EXEC dbo.sp_ListBikesRates";
+$sql = "EXEC dbo.sp_ListBikes";
 $stmt = sqlsrv_query($conn, $sql);
 if ($stmt === false) {
     echo json_encode(["success" => false, "error" => "query_failed", "detail" => sqlsrv_errors()]);
@@ -23,6 +23,7 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         'id' => (int)$row['Bike_ID'],
         'model' => $row['bike_name_model'],
         'type' => $row['bike_type'],
+        'availability' => isset($row['availability_status']) ? $row['availability_status'] : null,
         'hourly_rate' => isset($row['hourly_rate']) ? (float)$row['hourly_rate'] : 0.0
     ];
 }

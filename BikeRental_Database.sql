@@ -772,6 +772,91 @@ BEGIN
 END;
 GO
 
+
+-- =============================================
+-- Bikes Procedures (List/Add/Update/Delete)
+-- Safe (no DB drop), re-creatable
+-- =============================================
+USE BikeRental;
+GO
+
+-- List bikes with availability and hourly rate
+IF OBJECT_ID('dbo.sp_ListBikes', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ListBikes;
+GO
+CREATE PROCEDURE dbo.sp_ListBikes
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT Bike_ID,
+           bike_name_model,
+           bike_type,
+           availability_status,
+           hourly_rate
+    FROM dbo.Bike
+    ORDER BY Bike_ID;
+END;
+GO
+
+-- Add a bike and return new ID
+IF OBJECT_ID('dbo.sp_AddBike', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_AddBike;
+GO
+CREATE PROCEDURE dbo.sp_AddBike
+    @AdminID INT,
+    @Model NVARCHAR(100),
+    @Type NVARCHAR(50),
+    @Status NVARCHAR(20),
+    @Rate DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.Bike (admin_id, bike_name_model, bike_type, availability_status, hourly_rate)
+    VALUES (@AdminID, @Model, @Type, @Status, @Rate);
+
+    SELECT CAST(SCOPE_IDENTITY() AS INT) AS Bike_ID;
+END;
+GO
+
+-- Update a bike; only fields provided (non-NULL) will be updated
+IF OBJECT_ID('dbo.sp_UpdateBike', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateBike;
+GO
+CREATE PROCEDURE dbo.sp_UpdateBike
+    @BikeID INT,
+    @Model NVARCHAR(100) = NULL,
+    @Type NVARCHAR(50) = NULL,
+    @Status NVARCHAR(20) = NULL,
+    @Rate DECIMAL(10,2) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE dbo.Bike
+    SET bike_name_model = COALESCE(@Model, bike_name_model),
+        bike_type = COALESCE(@Type, bike_type),
+        availability_status = COALESCE(@Status, availability_status),
+        hourly_rate = COALESCE(@Rate, hourly_rate)
+    WHERE Bike_ID = @BikeID;
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Delete a bike (will fail if referenced by Rentals)
+IF OBJECT_ID('dbo.sp_DeleteBike', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_DeleteBike;
+GO
+CREATE PROCEDURE dbo.sp_DeleteBike
+    @BikeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DELETE FROM dbo.Bike WHERE Bike_ID = @BikeID;
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
 -- Upsert Business Info
 IF OBJECT_ID('dbo.sp_UpdateBusinessInfo', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateBusinessInfo;
