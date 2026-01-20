@@ -125,7 +125,7 @@ async function loadBikes() {
                 category,
                 status,
                 price: Number(b.hourly_rate) || 0,
-                image: null,
+                image: b.photo_url || null,
                 condition: (b.condition ? String(b.condition) : '').toLowerCase() || null
             };
         });
@@ -223,6 +223,20 @@ async function handleAddBikeSubmit(e) {
     if (bikeCondition) form.append('condition', bikeCondition);
 
     try {
+        const fileInput = document.getElementById('addBikeImage');
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            if (!file.type.startsWith('image/')) {
+                alert('Selected file is not an image.');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) { // 5MB
+                alert('Image is larger than 5MB.');
+                return;
+            }
+            form.append('photo', file);
+        }
+
         const res = await fetch('add_bike.php', {
             method: 'POST',
             body: form

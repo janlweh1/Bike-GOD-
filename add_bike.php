@@ -62,6 +62,7 @@ if (!is_numeric($rate) || $rateVal < 0) {
 
 $adminId = intval($_SESSION['user_id']);
 
+// Insert bike first to obtain ID
 $sql = "EXEC dbo.sp_AddBike @AdminID = ?, @Model = ?, @Type = ?, @Status = ?, @Rate = ?";
 $params = [$adminId, $model, $dbType, $dbStatus, $rateVal];
 
@@ -84,7 +85,61 @@ if ($insertedId && $dbCondition !== null) {
     // best-effort; ignore failure here to maintain compatibility when column isn't present
 }
 
+// Handle optional photo upload after insert
+$photoUrl = null;
+$photoError = null;
+if ($insertedId && isset($_FILES['photo']) && is_array($_FILES['photo'])) {
+    $file = $_FILES['photo'];
+    if ($file['error'] === UPLOAD_ERR_OK) {
+        $maxBytes = 5 * 1024 * 1024; // 5MB
+        if ($file['size'] > $maxBytes) {
+            $photoError = 'Image exceeds 5MB limit';
+        } else {
+            $finfo = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : false;
+            $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : ($file['type'] ?? '');
+            if ($finfo) finfo_close($finfo);
+            $allowed = [
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/gif'  => 'gif',
+                'image/webp' => 'webp',
+                'image/avif' => 'avif',
+            ];
+            if (!isset($allowed[$mime])) {
+                $photoError = 'Unsupported image type';
+            } else {
+                $ext = $allowed[$mime];
+                $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
+                if (!is_dir($uploadDir)) {
+                    @mkdir($uploadDir, 0775, true);
+                }
+                if (is_dir($uploadDir) && is_writable($uploadDir)) {
+                    // Remove older files for this bike id (any extension)
+                    foreach (['jpg','jpeg','png','gif','webp','avif'] as $e) {
+                        $old = $uploadDir . DIRECTORY_SEPARATOR . 'bike_' . $insertedId . '.' . $e;
+                        if (file_exists($old)) { @unlink($old); }
+                    }
+                    $destFs = $uploadDir . DIRECTORY_SEPARATOR . 'bike_' . $insertedId . '.' . $ext;
+                    if (move_uploaded_file($file['tmp_name'], $destFs)) {
+                        // Build web path relative to this app root
+                        $photoUrl = 'uploads/' . 'bike_' . $insertedId . '.' . $ext;
+                    } else {
+                        $photoError = 'Failed to save uploaded image';
+                    }
+                } else {
+                    $photoError = 'Uploads directory not writable';
+                }
+            }
+        }
+    } elseif ($file['error'] !== UPLOAD_ERR_NO_FILE) {
+        $photoError = 'Upload failed (code ' . $file['error'] . ')';
+    }
+}
+
 sqlsrv_close($conn);
 
-echo json_encode(['success' => true, 'id' => $insertedId]);
+$response = ['success' => true, 'id' => $insertedId];
+if ($photoUrl) $response['photo_url'] = $photoUrl;
+if ($photoError) $response['photo_error'] = $photoError;
+echo json_encode($response);
 ?>
