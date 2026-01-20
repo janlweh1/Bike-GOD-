@@ -2,35 +2,46 @@
 let allRentals = [];
 let filteredRentals = [];
 let currentRentalForComplete = null;
+let latestSummary = null;
 
 // Load rental data on page load
 function loadRentalData() {
-    try {
-        // Get active rentals
-        const storedActiveRentals = localStorage.getItem('activeRentals');
-        const activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
-        
-        // Get rental history
-        const storedHistory = localStorage.getItem('rentalHistory');
-        const rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
-        
-        // Combine all rentals
-        allRentals = [...activeRentals, ...rentalHistory];
-        
-        // Sort by most recent first
-        allRentals.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-        
-        filteredRentals = [...allRentals];
-        
-        // Update statistics
-        updateStatistics();
-        
-        // Display rentals
-        displayRentals();
-    } catch (error) {
-        console.error('Error loading rental data:', error);
-        displayNoData();
-    }
+    // Prefer server data; fallback to local data if unavailable
+    fetch('get_rentals.php', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.success === false) throw new Error('Failed to load from server');
+            const rentals = Array.isArray(data.rentals) ? data.rentals : [];
+            // Normalize and sort
+            allRentals = rentals.map(r => ({
+                ...r,
+                startTime: r.startTime || (r.pickupDate && r.pickupTime ? new Date(r.pickupDate + ' ' + r.pickupTime).toISOString() : null),
+                cost: typeof r.cost === 'number' ? r.cost : 0,
+                duration: typeof r.duration === 'number' ? r.duration : 0,
+            }));
+            allRentals.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
+            filteredRentals = [...allRentals];
+            latestSummary = data.summary || null;
+            updateStatistics(latestSummary);
+            displayRentals();
+        })
+        .catch(err => {
+            console.warn('Server rentals unavailable, falling back to local', err);
+            try {
+                const storedActiveRentals = localStorage.getItem('activeRentals');
+                const activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
+                const storedHistory = localStorage.getItem('rentalHistory');
+                const rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
+                allRentals = [...activeRentals, ...rentalHistory];
+                allRentals.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+                filteredRentals = [...allRentals];
+                updateStatistics();
+                displayRentals();
+            } catch (error) {
+                console.error('Error loading rental data:', error);
+                displayNoData();
+            }
+        });
 }
 
 // Calculate rental status
@@ -109,7 +120,15 @@ function formatTime(timeString) {
 }
 
 // Update statistics
-function updateStatistics() {
+function updateStatistics(summary) {
+    if (summary) {
+        document.getElementById('activeCount').textContent = summary.active ?? 0;
+        document.getElementById('completedTodayCount').textContent = summary.completedToday ?? 0;
+        document.getElementById('overdueCount').textContent = summary.overdue ?? 0;
+        const rev = typeof summary.todayRevenue === 'number' ? summary.todayRevenue : 0;
+        document.getElementById('todayRevenue').textContent = '₱' + rev.toFixed(2);
+        return;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -201,11 +220,6 @@ function displayRentals() {
                                 <span class="icon"><img src="check (1).png"></span>
                             </button>
                         ` : ''}
-                        ${status === 'overdue' ? `
-                            <button class="action-btn contact" title="Contact Customer" onclick="contactCustomer(${index})">
-                                <span class="icon"><img src="phone-call.png"></span>
-                            </button>
-                        ` : ''}
                     </div>
                 </td>
             </tr>
@@ -268,59 +282,29 @@ function openCompleteModal(index) {
 // Confirm complete rental
 function confirmComplete() {
     if (!currentRentalForComplete) return;
-    
-    try {
-        // Get active rentals
-        const storedActiveRentals = localStorage.getItem('activeRentals');
-        let activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
-        
-        // Find and remove from active rentals
-        const activeIndex = activeRentals.findIndex(r => r.id === currentRentalForComplete.id);
-        
-        if (activeIndex !== -1) {
-            // Mark as completed
-            const completedRental = {
-                ...activeRentals[activeIndex],
-                status: 'completed',
-                endTime: new Date().toISOString()
-            };
-            
-            // Remove from active
-            activeRentals.splice(activeIndex, 1);
-            localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
-            
-            // Add to history
-            const storedHistory = localStorage.getItem('rentalHistory');
-            let rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
-            rentalHistory.unshift(completedRental);
-            localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
-            
+    const rid = currentRentalForComplete.id;
+    const form = new URLSearchParams();
+    form.set('rental_id', rid);
+    fetch('complete_rental.php', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString()
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.success === false) throw new Error(data && data.message ? data.message : 'Failed');
             alert('Rental completed successfully!');
             closeModal('completeModal');
             currentRentalForComplete = null;
-            
-            // Reload data
             loadRentalData();
-        } else {
-            alert('Rental not found in active rentals.');
-        }
-    } catch (error) {
-        console.error('Error completing rental:', error);
-        alert('Error completing rental. Please try again.');
-    }
+        })
+        .catch(err => {
+            console.error('Error completing rental:', err);
+            alert('Error completing rental. Please try again.');
+        });
 }
 
-// Contact customer
-function contactCustomer(index) {
-    const rental = filteredRentals[index];
-    const phone = rental.customerPhone || '';
-    
-    if (phone) {
-        alert(`Contact Customer: ${rental.customerName}\nPhone: ${phone}\n\nThis rental is overdue. Please contact the customer.`);
-    } else {
-        alert('No phone number available for this customer.');
-    }
-}
 
 // Apply filters
 function applyFilters() {

@@ -2,44 +2,92 @@
 let allBikes = [];
 let activeRentals = [];
 let rentalHistory = [];
+let rentalsSummary = null;
 
 // Initialize dashboard
 function initDashboard() {
-    loadBikesData();
-    loadRentalData();
-    updateStatistics();
-    displayRecentRentals();
-    displayAvailableBikes();
+    Promise.all([loadBikesData(), loadRentalData(), loadCustomersSummary()])
+        .then(() => {
+            updateStatistics();
+            displayRecentRentals();
+            displayAvailableBikes();
+        })
+        .catch(() => {
+            updateStatistics();
+            displayRecentRentals();
+            displayAvailableBikes();
+        });
 }
 
 // Load bikes from shared-bikes-data.js
 function loadBikesData() {
-    if (typeof getBikesArray === 'function') {
-        allBikes = getBikesArray();
-    } else {
-        console.warn('getBikesArray not found, using fallback data');
-        allBikes = [];
-    }
+    // Prefer server endpoint; fallback to shared-bikes-data.js if present
+    return fetch('get_bikes.php', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.success && Array.isArray(data.bikes)) {
+                allBikes = data.bikes.map(b => ({
+                    id: b.id,
+                    name: b.model,
+                    category: (b.type || 'City Bike').toLowerCase().includes('mountain') ? 'mountain'
+                              : (b.type || '').toLowerCase().includes('road') ? 'road'
+                              : (b.type || '').toLowerCase().includes('electric') ? 'electric'
+                              : (b.type || '').toLowerCase().includes('kid') ? 'kids'
+                              : (b.type || '').toLowerCase().includes('premium') ? 'premium'
+                              : 'city',
+                    condition: (b.condition || 'Excellent').toLowerCase(),
+                    status: (b.availability || 'Available').toLowerCase() === 'available' ? 'available' : 'unavailable',
+                    price: b.hourly_rate || 0
+                }));
+            } else {
+                throw new Error('fallback');
+            }
+        })
+        .catch(() => {
+            if (typeof getBikesArray === 'function') {
+                allBikes = getBikesArray();
+            } else {
+                allBikes = [];
+            }
+        });
 }
 
 // Load rental data from localStorage
 function loadRentalData() {
-    try {
-        const storedActiveRentals = localStorage.getItem('activeRentals');
-        const storedHistory = localStorage.getItem('rentalHistory');
-        
-        if (storedActiveRentals) {
-            activeRentals = JSON.parse(storedActiveRentals);
-        }
-        
-        if (storedHistory) {
-            rentalHistory = JSON.parse(storedHistory);
-        }
-    } catch (error) {
-        console.error('Error loading rental data:', error);
-        activeRentals = [];
-        rentalHistory = [];
-    }
+    // Prefer server rentals endpoint; fallback to localStorage
+    return fetch('get_rentals.php', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.success === false) throw new Error('fallback');
+            const rentals = Array.isArray(data.rentals) ? data.rentals : [];
+            rentalsSummary = data.summary || null;
+            activeRentals = rentals.filter(r => r.status === 'active');
+            rentalHistory = rentals.filter(r => r.status === 'completed');
+        })
+        .catch(() => {
+            try {
+                const storedActiveRentals = localStorage.getItem('activeRentals');
+                const storedHistory = localStorage.getItem('rentalHistory');
+                activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
+                rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
+                rentalsSummary = null;
+            } catch (error) {
+                activeRentals = [];
+                rentalHistory = [];
+                rentalsSummary = null;
+            }
+        });
+}
+
+function loadCustomersSummary() {
+    // Load total customers and new this week from server
+    return fetch('get_customers.php', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.success === false) throw new Error('failed');
+            window.__customersSummary = data.summary || null;
+        })
+        .catch(() => { window.__customersSummary = null; });
 }
 
 // Update all statistics
@@ -53,17 +101,17 @@ function updateStatistics() {
 // Update total bikes count
 function updateTotalBikes() {
     const total = allBikes.length;
-    const thisMonth = Math.floor(allBikes.length * 0.08); // Approximate 8% as new
-    
     document.getElementById('totalBikes').textContent = total;
-    document.getElementById('bikesChange').textContent = `+${thisMonth} this month`;
+    // No server-provided delta; display available count as a hint
+    const available = allBikes.filter(b => b.status === 'available').length;
+    document.getElementById('bikesChange').textContent = `${available} available`;
 }
 
 // Update active rentals count
 function updateActiveRentals() {
-    const activeCount = activeRentals.length;
+    const activeCount = rentalsSummary && typeof rentalsSummary.active === 'number'
+        ? rentalsSummary.active : activeRentals.length;
     const todayRentals = calculateTodayRentals();
-    
     document.getElementById('activeRentals').textContent = activeCount;
     document.getElementById('rentalsChange').textContent = `+${todayRentals} today`;
 }
@@ -98,37 +146,33 @@ function calculateTodayRentals() {
 
 // Update total customers (unique customers from rentals)
 function updateTotalCustomers() {
+    if (window.__customersSummary) {
+        const total = window.__customersSummary.totalMembers || 0;
+        const thisWeek = window.__customersSummary.newThisWeek || 0;
+        document.getElementById('totalCustomers').textContent = total;
+        document.getElementById('customersChange').textContent = `+${thisWeek} this week`;
+        return;
+    }
+    // Fallback to unique customers from rentals
     const uniqueCustomers = new Set();
-    
-    // Add customers from active rentals
-    activeRentals.forEach(rental => {
-        if (rental.customerName) {
-            uniqueCustomers.add(rental.customerName);
-        }
-    });
-    
-    // Add customers from history
-    rentalHistory.forEach(rental => {
-        if (rental.customerName) {
-            uniqueCustomers.add(rental.customerName);
-        }
-    });
-    
+    activeRentals.forEach(r => { if (r.customerName) uniqueCustomers.add(r.customerName); });
+    rentalHistory.forEach(r => { if (r.customerName) uniqueCustomers.add(r.customerName); });
     const total = uniqueCustomers.size || (activeRentals.length + rentalHistory.length);
-    const thisWeek = Math.floor(total * 0.05); // Approximate 5% as new this week
-    
     document.getElementById('totalCustomers').textContent = total;
-    document.getElementById('customersChange').textContent = `+${thisWeek} this week`;
+    document.getElementById('customersChange').textContent = `+0 this week`;
 }
 
 // Update revenue today
 function updateRevenueToday() {
+    if (rentalsSummary && typeof rentalsSummary.todayRevenue === 'number') {
+        const revenue = rentalsSummary.todayRevenue;
+        document.getElementById('revenueToday').textContent = `₱${Math.round(revenue)}`;
+        document.getElementById('revenueChange').textContent = revenue > 0 ? '+100%' : '+0%';
+        return;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
     let revenue = 0;
-    
-    // Check completed rentals today
     rentalHistory.forEach(rental => {
         if (rental.endTime) {
             const endDate = new Date(rental.endTime);
@@ -138,8 +182,6 @@ function updateRevenueToday() {
             }
         }
     });
-    
-    // Check active rentals that started today
     activeRentals.forEach(rental => {
         const startDate = new Date(rental.startTime);
         startDate.setHours(0, 0, 0, 0);
@@ -147,40 +189,19 @@ function updateRevenueToday() {
             revenue += rental.cost || 0;
         }
     });
-    
-    const percentage = revenue > 0 ? '+15%' : '+0%';
-    
-    document.getElementById('revenueToday').textContent = `₱${revenue.toFixed(0)}`;
-    document.getElementById('revenueChange').textContent = percentage;
+    document.getElementById('revenueToday').textContent = `₱${Math.round(revenue)}`;
+    document.getElementById('revenueChange').textContent = revenue > 0 ? '+100%' : '+0%';
 }
 
 // Display recent rentals in table
 function displayRecentRentals() {
     const tbody = document.getElementById('recentRentalsTable');
-    
-    // Combine active rentals and recent history
-    let allRentals = [];
-    
-    // Add active rentals
-    activeRentals.forEach((rental, index) => {
-        allRentals.push({
-            ...rental,
-            status: 'active',
-            rentalId: rental.id || 'R' + String(Date.now() + index).slice(-4)
-        });
-    });
-    
-    // Add from history (most recent first)
-    const recentHistory = rentalHistory.slice(0, 5);
-    recentHistory.forEach((rental, index) => {
-        allRentals.push({
-            ...rental,
-            rentalId: rental.id || 'R' + String(1000 + index),
-            status: rental.status || 'completed'
-        });
-    });
-    
-    if (allRentals.length === 0) {
+    // From server data if available
+    let all = [];
+    activeRentals.forEach((r, i) => all.push({ ...r, rentalId: r.id || `A${i}` }));
+    rentalHistory.forEach((r, i) => all.push({ ...r, rentalId: r.id || `C${i}` }));
+    all.sort((a,b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
+    if (all.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="text-align: center; padding: 2rem; color: #7f8c8d;">
@@ -190,17 +211,11 @@ function displayRecentRentals() {
         `;
         return;
     }
-    
-    tbody.innerHTML = allRentals.slice(0, 5).map(rental => {
-        const startDate = formatDate(rental.startTime);
-        const returnDate = rental.endTime ? formatDate(rental.endTime) : 
-                          formatDate(new Date(new Date(rental.startTime).getTime() + rental.duration * 3600000));
-        
-        const statusClass = rental.status === 'active' ? 'active' : 
-                           rental.status === 'completed' ? 'completed' : 'overdue';
-        const statusText = rental.status === 'active' ? 'Active' : 
-                          rental.status === 'completed' ? 'Completed' : 'Overdue';
-        
+    tbody.innerHTML = all.slice(0,5).map(rental => {
+        const startDate = formatDate(rental.startTime || new Date());
+        const returnDate = rental.endTime ? formatDate(rental.endTime) : startDate;
+        const statusClass = rental.status === 'active' ? 'active' : rental.status === 'completed' ? 'completed' : 'overdue';
+        const statusText = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
         return `
             <tr>
                 <td>#${rental.rentalId}</td>
@@ -256,11 +271,17 @@ function formatDate(dateStr) {
 
 // Refresh dashboard data (call this periodically or on page visibility)
 function refreshDashboard() {
-    loadBikesData();
-    loadRentalData();
-    updateStatistics();
-    displayRecentRentals();
-    displayAvailableBikes();
+    Promise.all([loadBikesData(), loadRentalData(), loadCustomersSummary()])
+        .then(() => {
+            updateStatistics();
+            displayRecentRentals();
+            displayAvailableBikes();
+        })
+        .catch(() => {
+            updateStatistics();
+            displayRecentRentals();
+            displayAvailableBikes();
+        });
 }
 
 // Auto-refresh every 30 seconds
