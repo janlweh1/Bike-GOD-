@@ -218,7 +218,10 @@
                     </div>
                     <div class="form-group">
                         <label>Maximum Rental Period</label>
-                        <input type="number" value="30" placeholder="Days">
+                        <div style="display:flex;align-items:center;gap:8px;max-width:260px;">
+                            <input id="maxDays" type="number" value="30" min="0" style="flex:0 0 120px;">
+                            <span style="color:#7f8c8d;">Day/s</span>
+                        </div>
                     </div>
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="auto-late" checked>
@@ -568,6 +571,7 @@
         // Initialize settings data from backend and name display
         window.addEventListener('DOMContentLoaded', function() {
             loadAdminFromBackend();
+            loadGeneralSettingsFromBackend();
             loadBusinessInfoFromBackend();
             updateNameDisplay();
         });
@@ -726,31 +730,113 @@
             }
         }
 
-        // Save General settings
-        function saveGeneralSettings() {
+        // Save General settings (DB + cache)
+        async function saveGeneralSettings() {
             const section = document.getElementById('general');
             const systemName = section.querySelector('input[placeholder="Enter system name"]').value.trim();
             const language = section.querySelector('select').value;
             const timezone = section.querySelectorAll('select')[1].value;
             const dateFormat = section.querySelectorAll('select')[2].value;
             const currency = section.querySelectorAll('select')[3].value;
-            const settings = getSettings();
-            settings.general = { systemName, language, timezone, dateFormat, currency };
-            setSettings(settings);
-            alert('General settings saved.');
+            if (!systemName) { alert('Please enter a system name.'); return; }
+            try {
+                const res = await fetch('update_general_settings.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ systemName, language, timezone, dateFormat, currency, rental: getSettings().rental || {} })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    let msg = data.error ? `Failed to save: ${data.error}` : 'Failed to save general settings.';
+                    if (data.detail) {
+                        try {
+                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
+                            if (err) msg += `\nDetails: ${err}`;
+                        } catch {}
+                    }
+                    alert(msg);
+                    return;
+                }
+                const settings = getSettings();
+                settings.general = { systemName, language, timezone, dateFormat, currency };
+                setSettings(settings);
+                alert('General settings saved to database.');
+            } catch (e) {
+                alert('Failed to save general settings. ' + (e && e.message ? e.message : ''));
+            }
         }
 
-        // Save Rental settings
-        function saveRentalSettings() {
+        // Save Rental settings (DB + cache)
+        async function saveRentalSettings() {
             const section = document.getElementById('general');
-            const minPeriod = section.querySelector('select option[value="1"]').selected ? 1 : (section.querySelector('select option[value="4"]').selected ? 4 : 24);
-            const maxDays = parseInt(section.querySelector('input[placeholder="Days"]').value, 10) || 0;
+            const minSelect = section.querySelectorAll('select')[0];
+            const minPeriod = parseInt(minSelect.value || '1', 10);
+            const maxDays = parseInt(document.getElementById('maxDays').value, 10) || 0;
             const autoLate = document.getElementById('auto-late').checked;
             const requireDeposit = document.getElementById('require-deposit').checked;
-            const settings = getSettings();
-            settings.rental = { minPeriod, maxDays, autoLate, requireDeposit };
-            setSettings(settings);
-            alert('Rental settings saved.');
+            const general = getSettings().general || {};
+            try {
+                const res = await fetch('update_general_settings.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemName: general.systemName || 'BikeRental Management System',
+                        language: general.language || 'en',
+                        timezone: general.timezone || 'asia/manila',
+                        dateFormat: general.dateFormat || 'dd/mm/yyyy',
+                        currency: general.currency || 'php',
+                        rental: { minPeriod, maxDays, autoLate, requireDeposit }
+                    })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    let msg = data.error ? `Failed to save: ${data.error}` : 'Failed to save rental settings.';
+                    if (data.detail) {
+                        try {
+                            const err = Array.isArray(data.detail) ? data.detail.map(e => e.message || '').join('\n') : JSON.stringify(data.detail);
+                            if (err) msg += `\nDetails: ${err}`;
+                        } catch {}
+                    }
+                    alert(msg);
+                    return;
+                }
+                const settings = getSettings();
+                settings.rental = { minPeriod, maxDays, autoLate, requireDeposit };
+                setSettings(settings);
+                alert('Rental settings saved to database.');
+            } catch (e) {
+                alert('Failed to save rental settings. ' + (e && e.message ? e.message : ''));
+            }
+        }
+
+        // Load General settings from backend
+        async function loadGeneralSettingsFromBackend() {
+            const section = document.getElementById('general');
+            try {
+                const res = await fetch('get_general_settings.php');
+                const data = await res.json();
+                if (!data.success || !data.settings) return;
+                const g = data.settings;
+                // General
+                section.querySelector('input[placeholder="Enter system name"]').value = g.systemName || section.querySelector('input[placeholder="Enter system name"]').value;
+                section.querySelector('select').value = g.language || section.querySelector('select').value;
+                section.querySelectorAll('select')[1].value = g.timezone || section.querySelectorAll('select')[1].value;
+                section.querySelectorAll('select')[2].value = g.dateFormat || section.querySelectorAll('select')[2].value;
+                section.querySelectorAll('select')[3].value = g.currency || section.querySelectorAll('select')[3].value;
+                // Rental
+                const minSelect = section.querySelectorAll('select')[0];
+                Array.from(minSelect.options).forEach(opt => opt.selected = false);
+                const targetOpt = Array.from(minSelect.options).find(o => String(o.value) === String(g.rental?.minPeriod || '1'));
+                if (targetOpt) targetOpt.selected = true;
+                document.getElementById('maxDays').value = g.rental?.maxDays ?? document.getElementById('maxDays').value;
+                document.getElementById('auto-late').checked = !!(g.rental?.autoLate);
+                document.getElementById('require-deposit').checked = !!(g.rental?.requireDeposit);
+                // Cache
+                const settings = getSettings();
+                settings.general = { systemName: g.systemName, language: g.language, timezone: g.timezone, dateFormat: g.dateFormat, currency: g.currency };
+                settings.rental = { minPeriod: g.rental?.minPeriod, maxDays: g.rental?.maxDays, autoLate: g.rental?.autoLate, requireDeposit: g.rental?.requireDeposit };
+                setSettings(settings);
+            } catch {}
         }
 
         // Save Business Info (persists to backend + caches locally)
@@ -922,7 +1008,7 @@
                 const val = String(s.rental.minPeriod || 1);
                 const targetOpt = Array.from(select.options).find(o => o.value === val);
                 if (targetOpt) targetOpt.selected = true;
-                section.querySelector('input[placeholder="Days"]').value = s.rental.maxDays ?? section.querySelector('input[placeholder="Days"]').value;
+                document.getElementById('maxDays').value = s.rental.maxDays ?? document.getElementById('maxDays').value;
                 document.getElementById('auto-late').checked = !!s.rental.autoLate;
                 document.getElementById('require-deposit').checked = !!s.rental.requireDeposit;
             }
