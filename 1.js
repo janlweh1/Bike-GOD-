@@ -28,12 +28,13 @@ function createBikeCard(bike) {
     const category = bike.category || 'city';
     const price = typeof bike.price === 'number' ? bike.price : 0;
     const image = bike.image || 'https://via.placeholder.com/500x300/cccccc/666666?text=Bike';
+    const statusLabel = status === 'available' ? 'Available' : (status === 'rented' ? 'Rented' : (status.charAt(0).toUpperCase() + status.slice(1)));
     return `
         <div class="bike-card" data-id="${bike.id}" data-category="${category}" data-status="${status}" data-price="${price}">
             <div class="bike-image">
                 <img src="${image}" alt="${bike.name}">
                 <span class="bike-id">#${bike.id}</span>
-                <span class="status-badge ${status}">${status === 'available' ? 'Available' : 'Rented'}</span>
+                <span class="status-badge ${status}">${statusLabel}</span>
             </div>
             <div class="bike-info">
                 <h3>${bike.name}</h3>
@@ -72,6 +73,8 @@ function filterBikes() {
 
     const filtered = serverBikes.filter(bike => {
         if (statusFilter !== 'all' && bike.status !== statusFilter) return false;
+        // By default, hide maintenance/archived bikes when "all" is selected
+        if (statusFilter === 'all' && bike.status && !['available','rented'].includes(bike.status)) return false;
         if (typeFilter !== 'all' && bike.category !== typeFilter) return false;
 
         if (priceFilter !== 'all') {
@@ -301,8 +304,21 @@ async function confirmDelete() {
         const res = await fetch('delete_bike.php', { method: 'POST', body: form });
         const data = await res.json();
         if (!data.success) {
-            const msg = 'Delete failed' + (data.error ? `: ${data.error}` : '');
-            alert(msg + '\nIf this bike has rentals, it cannot be deleted.');
+            const proceedArchive = confirm('This bike has rental history and cannot be deleted.\nWould you like to archive it instead?');
+            if (!proceedArchive) return;
+            // Archive by setting status to Maintenance
+            const upd = new FormData();
+            upd.append('id', String(currentDeleteBikeId));
+            upd.append('status', 'maintenance');
+            const res2 = await fetch('update_bike.php', { method: 'POST', body: upd });
+            const data2 = await res2.json();
+            if (!data2.success) {
+                alert('Archive failed.');
+                return;
+            }
+            closeDeleteModal();
+            await loadBikes();
+            alert('Bike archived (set to Maintenance).');
             return;
         }
         closeDeleteModal();

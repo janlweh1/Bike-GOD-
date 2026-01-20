@@ -306,6 +306,11 @@ body {
     color: white;
 }
 
+.status-badge.maintenance {
+    background-color: #95a5a6;
+    color: white;
+}
+
 .bike-id {
     position: absolute;
     top: 15px;
