@@ -857,6 +857,32 @@ BEGIN
 END;
 GO
 
+-- Cascade delete: Returns -> Rentals -> Bike
+IF OBJECT_ID('dbo.sp_DeleteBikeCascade', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_DeleteBikeCascade;
+GO
+CREATE PROCEDURE dbo.sp_DeleteBikeCascade
+    @BikeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete returns associated to rentals of this bike
+    DELETE r
+    FROM dbo.Returns r
+    INNER JOIN dbo.Rentals t ON t.Rental_ID = r.rental_id
+    WHERE t.bike_id = @BikeID;
+
+    -- Delete rentals for this bike
+    DELETE FROM dbo.Rentals WHERE bike_id = @BikeID;
+
+    -- Finally delete the bike
+    DELETE FROM dbo.Bike WHERE Bike_ID = @BikeID;
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
 -- Upsert Business Info
 IF OBJECT_ID('dbo.sp_UpdateBusinessInfo', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateBusinessInfo;

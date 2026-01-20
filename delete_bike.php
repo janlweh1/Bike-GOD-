@@ -22,11 +22,16 @@ if ($id <= 0) {
     exit;
 }
 
-$sql = 'EXEC dbo.sp_DeleteBike @BikeID = ?';
+$cascade = false;
+if (isset($_POST['cascade'])) {
+    $v = strtolower((string)$_POST['cascade']);
+    $cascade = ($v === '1' || $v === 'true' || $v === 'yes');
+}
+
+$sql = $cascade ? 'EXEC dbo.sp_DeleteBikeCascade @BikeID = ?' : 'EXEC dbo.sp_DeleteBike @BikeID = ?';
 $stmt = sqlsrv_query($conn, $sql, [$id]);
 if ($stmt === false) {
     $detail = sqlsrv_errors();
-    // FK constraint likely due to Rentals referencing this Bike
     echo json_encode(['success' => false, 'error' => 'delete_failed', 'detail' => $detail]);
     sqlsrv_close($conn);
     exit;

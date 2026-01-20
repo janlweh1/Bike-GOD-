@@ -29,6 +29,11 @@ function createBikeCard(bike) {
     const price = typeof bike.price === 'number' ? bike.price : 0;
     const image = bike.image || 'https://via.placeholder.com/500x300/cccccc/666666?text=Bike';
     const statusLabel = status === 'available' ? 'Available' : (status === 'rented' ? 'Rented' : (status.charAt(0).toUpperCase() + status.slice(1)));
+    const actions = status === 'maintenance'
+        ? `<button class="edit-btn" onclick="restoreBike(${bike.id})">Restore</button>
+           <button class="delete-btn" onclick="openDeleteModal(${bike.id})">Delete</button>`
+        : `<button class="edit-btn" onclick="openEditModal(${bike.id})">Edit</button>
+           <button class="delete-btn" onclick="openDeleteModal(${bike.id})">Delete</button>`;
     return `
         <div class="bike-card" data-id="${bike.id}" data-category="${category}" data-status="${status}" data-price="${price}">
             <div class="bike-image">
@@ -47,8 +52,7 @@ function createBikeCard(bike) {
                         <div class="price">₱${price}<span>/hour</span></div>
                     </div>
                     <div class="bike-actions">
-                        <button class="edit-btn" onclick="openEditModal(${bike.id})">Edit</button>
-                        <button class="delete-btn" onclick="openDeleteModal(${bike.id})">Delete</button>
+                        ${actions}
                     </div>
                 </div>
             </div>
@@ -298,24 +302,37 @@ function closeDeleteModal() {
 
 async function confirmDelete() {
     if (!currentDeleteBikeId) return;
+    const bike = serverBikes.find(b => Number(b.id) === Number(currentDeleteBikeId));
     const form = new FormData();
     form.append('id', String(currentDeleteBikeId));
     try {
         const res = await fetch('delete_bike.php', { method: 'POST', body: form });
         const data = await res.json();
         if (!data.success) {
+            // If the bike is already in maintenance, do not fallback; show hard delete failure
+            if (bike && bike.status === 'maintenance') {
+                const doCascade = confirm('This maintenance bike still has related rentals/returns.\nDelete permanently with all related records?');
+                if (!doCascade) return;
+                const cascadeForm = new FormData();
+                cascadeForm.append('id', String(currentDeleteBikeId));
+                cascadeForm.append('cascade', '1');
+                const resC = await fetch('delete_bike.php', { method: 'POST', body: cascadeForm });
+                const dataC = await resC.json();
+                if (!dataC.success) { alert('Cascade delete failed.'); return; }
+                closeDeleteModal();
+                await loadBikes();
+                alert('Bike and related records deleted permanently.');
+                return;
+            }
+            // Otherwise, offer to archive
             const proceedArchive = confirm('This bike has rental history and cannot be deleted.\nWould you like to archive it instead?');
             if (!proceedArchive) return;
-            // Archive by setting status to Maintenance
             const upd = new FormData();
             upd.append('id', String(currentDeleteBikeId));
             upd.append('status', 'maintenance');
             const res2 = await fetch('update_bike.php', { method: 'POST', body: upd });
             const data2 = await res2.json();
-            if (!data2.success) {
-                alert('Archive failed.');
-                return;
-            }
+            if (!data2.success) { alert('Archive failed.'); return; }
             closeDeleteModal();
             await loadBikes();
             alert('Bike archived (set to Maintenance).');
@@ -327,6 +344,25 @@ async function confirmDelete() {
     } catch (err) {
         console.error(err);
         alert('Network error while deleting bike');
+    }
+}
+
+// Restore a maintenance bike back to available
+async function restoreBike(id) {
+    const confirmRestore = confirm('Restore this bike to Available?');
+    if (!confirmRestore) return;
+    try {
+        const form = new FormData();
+        form.append('id', String(id));
+        form.append('status', 'available');
+        const res = await fetch('update_bike.php', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!data.success) { alert('Restore failed.'); return; }
+        await loadBikes();
+        alert('Bike restored to Available.');
+    } catch (e) {
+        console.error(e);
+        alert('Network error while restoring bike');
     }
 }
 
