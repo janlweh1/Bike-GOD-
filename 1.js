@@ -27,6 +27,7 @@ function createBikeCard(bike) {
     const status = (bike.status || 'available').toLowerCase();
     const category = bike.category || 'city';
     const price = typeof bike.price === 'number' ? bike.price : 0;
+    const condition = (bike.condition || '').toLowerCase();
     const image = bike.image || 'https://via.placeholder.com/500x300/cccccc/666666?text=Bike';
     const statusLabel = status === 'available' ? 'Available' : (status === 'rented' ? 'Rented' : (status.charAt(0).toUpperCase() + status.slice(1)));
     const actions = status === 'maintenance'
@@ -46,6 +47,7 @@ function createBikeCard(bike) {
                 <p class="bike-type">${category.charAt(0).toUpperCase() + category.slice(1)} Bike</p>
                 <div class="bike-specs">
                     <span>⚙️ Type: ${bike.type || '-'}</span>
+                    ${condition ? `<span style="margin-left:8px;">🛠️ Condition: ${condition.charAt(0).toUpperCase() + condition.slice(1)}</span>` : ''}
                 </div>
                 <div class="bike-footer">
                     <div class="price-section">
@@ -72,6 +74,7 @@ function renderBikes(list = serverBikes) {
 function filterBikes() {
     const statusFilter = document.getElementById('statusFilter').value; // available|rented|all
     const typeFilter = document.getElementById('typeFilter').value;     // category values
+    const conditionFilter = document.getElementById('conditionFilter').value; // excellent|good|all
     const priceFilter = document.getElementById('priceFilter').value;
     const searchQuery = document.getElementById('searchInput').value.toLowerCase();
 
@@ -80,6 +83,12 @@ function filterBikes() {
         // By default, hide maintenance/archived bikes when "all" is selected
         if (statusFilter === 'all' && bike.status && !['available','rented'].includes(bike.status)) return false;
         if (typeFilter !== 'all' && bike.category !== typeFilter) return false;
+        if (conditionFilter !== 'all') {
+            const cond = (bike.condition || '').toLowerCase();
+            // Treat missing/empty condition as 'excellent' to avoid empty results pre-migration
+            const effective = cond || 'excellent';
+            if (effective !== conditionFilter) return false;
+        }
 
         if (priceFilter !== 'all') {
             const p = bike.price || 0;
@@ -116,7 +125,8 @@ async function loadBikes() {
                 category,
                 status,
                 price: Number(b.hourly_rate) || 0,
-                image: null
+                image: null,
+                condition: (b.condition ? String(b.condition) : '').toLowerCase() || null
             };
         });
         filterBikes();
@@ -198,6 +208,7 @@ async function handleAddBikeSubmit(e) {
     const bikeTypeCategory = document.getElementById('addBikeType').value; // category values
     const bikeStatus = document.getElementById('addBikeStatus').value; // available|rented
     const bikePrice = document.getElementById('addBikePrice').value;
+    const bikeCondition = document.getElementById('addBikeCondition') ? document.getElementById('addBikeCondition').value : '';
 
     if (!bikeName || !bikeTypeCategory || !bikeStatus || bikePrice === '') {
         alert('Please fill in all required fields.');
@@ -209,6 +220,7 @@ async function handleAddBikeSubmit(e) {
     form.append('type', mapCategoryToDbType(bikeTypeCategory));
     form.append('status', bikeStatus);
     form.append('rate', String(bikePrice));
+    if (bikeCondition) form.append('condition', bikeCondition);
 
     try {
         const res = await fetch('add_bike.php', {
@@ -242,6 +254,8 @@ function openEditModal(id) {
     document.getElementById('editBikeType').value = bike.category || 'city';
     document.getElementById('editBikeStatus').value = bike.status || 'available';
     document.getElementById('editBikePrice').value = typeof bike.price === 'number' ? bike.price : 0;
+    const editCond = document.getElementById('editBikeCondition');
+    if (editCond) editCond.value = (bike.condition || 'excellent');
     document.getElementById('editModal').style.display = 'block';
 }
 
@@ -258,12 +272,14 @@ async function handleEditBikeSubmit(e) {
     const category = document.getElementById('editBikeType').value;
     const status = document.getElementById('editBikeStatus').value;
     const rate = document.getElementById('editBikePrice').value;
+    const condition = document.getElementById('editBikeCondition') ? document.getElementById('editBikeCondition').value : '';
     const form = new FormData();
     form.append('id', String(id));
     if (model) form.append('model', model);
     if (category) form.append('type', mapCategoryToDbType(category));
     if (status) form.append('status', status);
     if (rate !== '') form.append('rate', String(rate));
+    if (condition) form.append('condition', condition);
     try {
         const res = await fetch('update_bike.php', { method: 'POST', body: form });
         const data = await res.json();
@@ -387,6 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('statusFilter').addEventListener('change', filterBikes);
     document.getElementById('typeFilter').addEventListener('change', filterBikes);
+    const condFilterEl = document.getElementById('conditionFilter');
+    if (condFilterEl) condFilterEl.addEventListener('change', filterBikes);
     document.getElementById('priceFilter').addEventListener('change', filterBikes);
     document.getElementById('searchInput').addEventListener('input', filterBikes);
 });

@@ -19,6 +19,8 @@ $model = isset($_POST['model']) ? trim($_POST['model']) : '';
 $type = isset($_POST['type']) ? trim($_POST['type']) : '';
 $status = isset($_POST['status']) ? trim($_POST['status']) : '';
 $rate = isset($_POST['rate']) ? $_POST['rate'] : null;
+// Optional condition support (Excellent|Good)
+$condition = isset($_POST['condition']) ? trim($_POST['condition']) : '';
 
 if ($model === '' || $type === '' || $status === '' || $rate === null || $rate === '') {
     echo json_encode(['success' => false, 'error' => 'validation_failed', 'message' => 'model, type, status, rate are required']);
@@ -44,6 +46,13 @@ $statusMap = [
 ];
 $dbStatus = $statusMap[strtolower($status)] ?? $status;
 
+// Normalize condition
+$condMap = [
+    'excellent' => 'Excellent',
+    'good' => 'Good',
+];
+$dbCondition = $condMap[strtolower($condition)] ?? null; // null means not provided
+
 $rateVal = floatval($rate);
 if (!is_numeric($rate) || $rateVal < 0) {
     echo json_encode(['success' => false, 'error' => 'validation_failed', 'message' => 'invalid rate']);
@@ -66,6 +75,13 @@ if ($stmt === false) {
 $insertedId = null;
 if ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $insertedId = isset($row['Bike_ID']) ? (int)$row['Bike_ID'] : null;
+}
+
+// If condition provided and the column exists, update it
+if ($insertedId && $dbCondition !== null) {
+    $sqlCond = "IF COL_LENGTH('dbo.Bike','bike_condition') IS NOT NULL \n                 UPDATE dbo.Bike SET bike_condition = ? WHERE Bike_ID = ?";
+    $stmtCond = sqlsrv_query($conn, $sqlCond, [$dbCondition, $insertedId]);
+    // best-effort; ignore failure here to maintain compatibility when column isn't present
 }
 
 sqlsrv_close($conn);

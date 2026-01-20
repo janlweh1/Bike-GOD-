@@ -58,6 +58,7 @@ CREATE TABLE Bike (
     bike_type NVARCHAR(50),
     availability_status NVARCHAR(20),
     hourly_rate DECIMAL(10,2),
+    bike_condition NVARCHAR(20) NOT NULL CONSTRAINT DF_Bike_Condition DEFAULT ('Excellent'),
     date_added DATETIME DEFAULT GETDATE()
 );
 GO
@@ -772,6 +773,89 @@ BEGIN
 END;
 GO
 
+
+-- =============================================
+-- Compiled Sections from Bike_Update_AddCondition.sql
+-- =============================================
+-- Adds bike_condition to Bike table and updates relevant stored procedures
+-- Safe to run multiple times
+
+USE BikeRental;
+GO
+
+-- 1) Add column if not exists
+IF COL_LENGTH('dbo.Bike','bike_condition') IS NULL
+BEGIN
+    ALTER TABLE dbo.Bike ADD bike_condition NVARCHAR(20) NULL CONSTRAINT DF_Bike_Condition DEFAULT ('Excellent');
+    -- Backfill existing rows
+    UPDATE dbo.Bike SET bike_condition = 'Excellent' WHERE bike_condition IS NULL;
+END
+GO
+
+-- 2) Update sp_ListBikes to include condition
+IF OBJECT_ID('dbo.sp_ListBikes', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ListBikes;
+GO
+CREATE PROCEDURE dbo.sp_ListBikes
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT Bike_ID,
+           bike_name_model,
+           bike_type,
+           availability_status,
+           hourly_rate,
+           bike_condition
+    FROM dbo.Bike
+    ORDER BY Bike_ID;
+END;
+GO
+
+-- 3) Update sp_AddBike to accept optional @Condition
+IF OBJECT_ID('dbo.sp_AddBike', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_AddBike;
+GO
+CREATE PROCEDURE dbo.sp_AddBike
+    @AdminID INT,
+    @Model NVARCHAR(100),
+    @Type NVARCHAR(50),
+    @Status NVARCHAR(20),
+    @Rate DECIMAL(10,2),
+    @Condition NVARCHAR(20) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.Bike (admin_id, bike_name_model, bike_type, availability_status, hourly_rate, bike_condition)
+    VALUES (@AdminID, @Model, @Type, @Status, @Rate, COALESCE(@Condition, 'Excellent'));
+
+    SELECT CAST(SCOPE_IDENTITY() AS INT) AS Bike_ID;
+END;
+GO
+
+-- 4) Update sp_UpdateBike to allow updating condition
+IF OBJECT_ID('dbo.sp_UpdateBike', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateBike;
+GO
+CREATE PROCEDURE dbo.sp_UpdateBike
+    @BikeID INT,
+    @Model NVARCHAR(100) = NULL,
+    @Type NVARCHAR(50) = NULL,
+    @Status NVARCHAR(20) = NULL,
+    @Rate DECIMAL(10,2) = NULL,
+    @Condition NVARCHAR(20) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE dbo.Bike
+    SET bike_name_model = COALESCE(@Model, bike_name_model),
+        bike_type = COALESCE(@Type, bike_type),
+        availability_status = COALESCE(@Status, availability_status),
+        hourly_rate = COALESCE(@Rate, hourly_rate),
+        bike_condition = COALESCE(@Condition, bike_condition)
+    WHERE Bike_ID = @BikeID;
+END;
+GO
 
 -- =============================================
 -- Bikes Procedures (List/Add/Update/Delete)

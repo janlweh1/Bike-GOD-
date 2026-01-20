@@ -20,6 +20,8 @@ $model = isset($_POST['model']) ? trim($_POST['model']) : '';
 $type = isset($_POST['type']) ? trim($_POST['type']) : '';
 $status = isset($_POST['status']) ? trim($_POST['status']) : '';
 $rate = isset($_POST['rate']) ? $_POST['rate'] : null;
+// Optional condition field
+$condition = isset($_POST['condition']) ? trim($_POST['condition']) : '';
 
 if ($id <= 0) {
     echo json_encode(['success' => false, 'error' => 'validation_failed', 'message' => 'invalid id']);
@@ -43,6 +45,11 @@ $statusMap = [
     'available' => 'Available',
     'rented' => 'Rented',
     'maintenance' => 'Maintenance',
+];
+// Normalize condition if provided
+$condMap = [
+    'excellent' => 'Excellent',
+    'good' => 'Good',
 ];
 
 if ($model !== '') { $fields[] = 'bike_name_model = ?'; $params[] = $model; }
@@ -86,6 +93,14 @@ if ($stmt === false) {
     echo json_encode(['success' => false, 'error' => 'update_failed', 'detail' => sqlsrv_errors()]);
     sqlsrv_close($conn);
     exit;
+}
+
+// If a condition was provided, update it separately when column exists
+if ($condition !== '') {
+    $dbCondition = $condMap[strtolower($condition)] ?? $condition;
+    $sqlCond = "IF COL_LENGTH('dbo.Bike','bike_condition') IS NOT NULL \n                 UPDATE dbo.Bike SET bike_condition = ? WHERE Bike_ID = ?";
+    $stmtCond = sqlsrv_query($conn, $sqlCond, [$dbCondition, $id]);
+    // Ignore failure to retain compatibility if column not present
 }
 
 sqlsrv_close($conn);
