@@ -1,12 +1,18 @@
 <?php
 // Returns customers with stats for admin page
+session_start();
 header('Content-Type: application/json');
 
-$serverName = "localhost";
-$database = "BikeRental";
-$conn = sqlsrv_connect($serverName, ["Database" => $database, "CharacterSet" => "UTF-8"]);
+// Optional: restrict to admin users only
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit();
+}
 
-if ($conn === false) {
+require_once __DIR__ . '/db_config.php';
+$conn = getConnection();
+if ($conn === null) {
     echo json_encode(['success' => false, 'message' => 'Database connection failed']);
     exit();
 }
@@ -16,6 +22,9 @@ $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 try {
     // Get members with stats
     $stmt = sqlsrv_query($conn, 'EXEC sp_GetMembersWithStats');
+    if ($stmt === false) {
+        throw new Exception('Query failed');
+    }
     $members = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $members[] = [
@@ -76,5 +85,5 @@ try {
     echo json_encode(['success' => false, 'message' => 'Error loading customers']);
 }
 
-sqlsrv_close($conn);
+closeConnection($conn);
 ?>

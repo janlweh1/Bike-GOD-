@@ -206,6 +206,7 @@
             <div class="modal-body">
                 <form id="editForm">
                     <input type="hidden" id="editRowIndex">
+                    <input type="hidden" id="editMemberId">
                     <div class="form-group">
                         <label>Customer ID</label>
                         <input type="text" id="editCustomerId" readonly>
@@ -302,6 +303,7 @@
                 tbody.innerHTML = '';
                 data.members.forEach(m => {
                     const tr = document.createElement('tr');
+                    tr.dataset.memberId = m.id;
                     tr.innerHTML = `
                         <td><input type="checkbox"></td>
                         <td>#C${String(m.id).padStart(4,'0')}</td>
@@ -381,6 +383,7 @@
             const rowIndex = Array.from(row.parentNode.children).indexOf(row);
 
             document.getElementById('editRowIndex').value = rowIndex;
+            document.getElementById('editMemberId').value = row.dataset.memberId || '';
             document.getElementById('editCustomerId').value = cells[1].textContent;
             document.getElementById('editCustomerName').value = cells[2].querySelector('.customer-name').textContent;
             document.getElementById('editCustomerEmail').value = cells[3].textContent;
@@ -401,29 +404,34 @@
             const tbody = document.getElementById('customerTableBody');
             const row = tbody.children[rowIndex];
 
-            const name = document.getElementById('editCustomerName').value;
-            const email = document.getElementById('editCustomerEmail').value;
-            const phone = document.getElementById('editCustomerPhone').value;
-            const rentals = document.getElementById('editCustomerRentals').value;
-            const spent = document.getElementById('editCustomerSpent').value;
-            const status = document.getElementById('editCustomerStatus').value;
-            const joined = document.getElementById('editCustomerJoined').value;
+            const memberId = document.getElementById('editMemberId').value;
+            const fullName = document.getElementById('editCustomerName').value.trim();
+            const email = document.getElementById('editCustomerEmail').value.trim();
+            const phone = document.getElementById('editCustomerPhone').value.trim();
 
-            // Update row
-            row.cells[2].querySelector('.customer-name').textContent = name;
-            row.cells[2].querySelector('.customer-joined').textContent = joined;
-            row.cells[3].textContent = email;
-            row.cells[4].textContent = phone;
-            row.cells[5].textContent = rentals;
-            row.cells[6].textContent = spent;
+            // Split full name into first/last (last token = last name)
+            const parts = fullName.split(/\s+/);
+            const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+            const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : fullName;
 
-            // Update status badge
-            const statusBadge = row.cells[7].querySelector('.status-badge');
-            statusBadge.className = `status-badge ${status}`;
-            statusBadge.textContent = status === 'active' ? 'Active Rental' : 'No Rental';
+            const fd = new FormData();
+            fd.append('member_id', memberId);
+            fd.append('first_name', firstName);
+            fd.append('last_name', lastName);
+            fd.append('email', email);
+            fd.append('contact_number', phone);
 
-            closeModal('editModal');
-            alert('Customer updated successfully!');
+            fetch('update_member.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) {
+                        alert(res.message || 'Update failed');
+                        return;
+                    }
+                    closeModal('editModal');
+                    loadCustomers();
+                })
+                .catch(() => alert('Network error'));
         }
 
         // Delete Customer
@@ -436,12 +444,23 @@
 
         // Confirm Delete
         function confirmDelete() {
-            if (rowToDelete) {
-                rowToDelete.remove();
-                rowToDelete = null;
-                closeModal('deleteModal');
-                alert('Customer deleted successfully!');
-            }
+            if (!rowToDelete) return;
+            const memberId = rowToDelete.dataset.memberId;
+            const fd = new FormData();
+            fd.append('member_id', memberId);
+
+            fetch('delete_member.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) {
+                        alert(res.message || 'Delete failed');
+                        return;
+                    }
+                    closeModal('deleteModal');
+                    rowToDelete.remove();
+                    rowToDelete = null;
+                })
+                .catch(() => alert('Network error'));
         }
 
         // Modal Functions
