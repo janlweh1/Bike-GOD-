@@ -92,7 +92,7 @@
                 <div class="filter-controls">
                     <div class="filter-group">
                         <label>Rental Status</label>
-                        <select>
+                        <select id="filterStatus">
                             <option value="">All Status</option>
                             <option value="active">Currently Renting</option>
                             <option value="inactive">No Active Rental</option>
@@ -100,7 +100,7 @@
                     </div>
                     <div class="filter-group">
                         <label>Join Date</label>
-                        <select>
+                        <select id="filterJoin">
                             <option value="">All Time</option>
                             <option value="week">This Week</option>
                             <option value="month">This Month</option>
@@ -109,7 +109,7 @@
                     </div>
                     <div class="filter-group">
                         <label>Sort By</label>
-                        <select>
+                        <select id="filterSort">
                             <option value="name">Name (A-Z)</option>
                             <option value="recent">Recently Added</option>
                             <option value="rentals">Most Rentals</option>
@@ -286,11 +286,28 @@
             if (searchInput) {
                 searchInput.addEventListener('input', debounce(() => loadCustomers(searchInput.value.trim()), 300));
             }
+            const statusSel = document.getElementById('filterStatus');
+            const joinSel = document.getElementById('filterJoin');
+            const sortSel = document.getElementById('filterSort');
+            [statusSel, joinSel, sortSel].forEach(el => {
+                if (el) el.addEventListener('change', () => {
+                    const q = searchInput ? searchInput.value.trim() : '';
+                    loadCustomers(q);
+                });
+            });
         });
 
         async function loadCustomers(query = '') {
             try {
-                const url = query ? `get_customers.php?q=${encodeURIComponent(query)}` : 'get_customers.php';
+            const status = document.getElementById('filterStatus')?.value || '';
+            const join = document.getElementById('filterJoin')?.value || '';
+            const sort = document.getElementById('filterSort')?.value || 'name';
+            const params = new URLSearchParams();
+            if (query) params.set('q', query);
+            if (status) params.set('status', status);
+            if (join) params.set('join', join);
+            if (sort) params.set('sort', sort);
+            const url = 'get_customers.php' + (params.toString() ? `?${params.toString()}` : '');
                 const res = await fetch(url);
                 const data = await res.json();
                 if (!data.success) return;
@@ -339,9 +356,18 @@
             const totalBox = document.querySelector('.stats-summary .total .number');
             const activeBox = document.querySelector('.stats-summary .active .number');
             const newBox = document.querySelector('.stats-summary .new .number');
+            const totalTrend = document.querySelector('.stats-summary .total .stat-trend');
+            const newTrend = document.querySelector('.stats-summary .new .stat-trend');
             if (totalBox) totalBox.textContent = summary.totalMembers ?? '0';
             if (activeBox) activeBox.textContent = summary.activeRentals ?? '0';
             if (newBox) newBox.textContent = summary.newThisMonth ?? '0';
+            if (totalTrend) totalTrend.textContent = `+${summary.newThisWeek ?? 0} this week`;
+            if (newTrend) {
+                const pct = summary.monthOverMonthPct ?? 0;
+                newTrend.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
+                newTrend.classList.toggle('positive', pct >= 0);
+                newTrend.classList.toggle('negative', pct < 0);
+            }
         }
 
         function formatJoined(dateStr) {

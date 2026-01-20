@@ -18,6 +18,10 @@ if ($conn === null) {
 }
 
 $search = isset($_GET['q']) ? trim($_GET['q']) : '';
+// Filters
+$status = isset($_GET['status']) ? trim($_GET['status']) : ''; // 'active' | 'inactive' | ''
+$join = isset($_GET['join']) ? trim($_GET['join']) : ''; // '' | 'week' | 'month' | 'year'
+$sort = isset($_GET['sort']) ? trim($_GET['sort']) : 'name'; // 'name' | 'recent' | 'rentals' | 'spending'
 
 try {
     // Get members with stats
@@ -40,21 +44,70 @@ try {
         ];
     }
 
-    // Optional search filtering on server side
+    // Apply filters
+    // Search (case-insensitive, no mbstring dependency)
     if ($search !== '') {
-        $needle = mb_strtolower($search);
-        $members = array_values(array_filter($members, function($m) use ($needle) {
+        $members = array_values(array_filter($members, function($m) use ($search) {
+            $fullName = trim((string)($m['firstName'] ?? '').' '.(string)($m['lastName'] ?? ''));
+            $email = (string)($m['email'] ?? '');
+            $phone = (string)($m['phone'] ?? '');
+            $username = (string)($m['username'] ?? '');
             return (
-                strpos(mb_strtolower($m['firstName'].' '.$m['lastName']), $needle) !== false ||
-                strpos(mb_strtolower($m['email']), $needle) !== false ||
-                strpos(mb_strtolower($m['phone']), $needle) !== false ||
-                strpos(mb_strtolower($m['username']), $needle) !== false
+                stripos($fullName, $search) !== false ||
+                stripos($email, $search) !== false ||
+                stripos($phone, $search) !== false ||
+                stripos($username, $search) !== false
             );
         }));
     }
 
+    // Rental status
+    if ($status === 'active') {
+        $members = array_values(array_filter($members, function($m) { return (int)($m['activeRentals'] ?? 0) > 0; }));
+    } elseif ($status === 'inactive') {
+        $members = array_values(array_filter($members, function($m) { return (int)($m['activeRentals'] ?? 0) === 0; }));
+    }
+
+    // Join date window
+    if (in_array($join, ['week','month','year'], true)) {
+        $now = new DateTime('now');
+        $members = array_values(array_filter($members, function($m) use ($join, $now) {
+            $joinedStr = $m['joined'] ?? null;
+            if (!$joinedStr) return false;
+            try {
+                $joined = new DateTime($joinedStr);
+            } catch (Exception $e) { return false; }
+            if ($join === 'week') {
+                // Compare ISO week
+                return ($joined->format('oW') === $now->format('oW'));
+            } elseif ($join === 'month') {
+                return ($joined->format('Y-m') === $now->format('Y-m'));
+            } elseif ($join === 'year') {
+                return ($joined->format('Y') === $now->format('Y'));
+            }
+            return true;
+        }));
+    }
+
+    // Sorting
+    if ($sort === 'recent') {
+        usort($members, function($a,$b){
+            return strcmp($b['joined'] ?? '', $a['joined'] ?? '');
+        });
+    } elseif ($sort === 'rentals') {
+        usort($members, function($a,$b){
+            return (int)($b['totalRentals'] ?? 0) <=> (int)($a['totalRentals'] ?? 0);
+        });
+    } else { // name or unsupported options default
+        usort($members, function($a,$b){
+            $an = trim(($a['lastName'] ?? '').' '.($a['firstName'] ?? ''));
+            $bn = trim(($b['lastName'] ?? '').' '.($b['firstName'] ?? ''));
+            return strcasecmp($an, $bn);
+        });
+    }
+
     // Get summary stats
-    $totalMembers = 0; $newThisMonth = 0; $activeRentals = 0;
+    $totalMembers = 0; $newThisMonth = 0; $activeRentals = 0; $newThisWeek = 0; $prevMonthCount = 0; $momPct = 0;
 
     $stmtCount = sqlsrv_query($conn, 'EXEC sp_CountMembers');
     if ($stmtCount && $row = sqlsrv_fetch_array($stmtCount, SQLSRV_FETCH_ASSOC)) {
@@ -64,6 +117,25 @@ try {
     $stmtNew = sqlsrv_query($conn, 'EXEC sp_CountMembersNewThisMonth');
     if ($stmtNew && $row = sqlsrv_fetch_array($stmtNew, SQLSRV_FETCH_ASSOC)) {
         $newThisMonth = (int)$row['NewThisMonth'];
+    }
+
+    // New this week (ISO week)
+    $stmtWeek = sqlsrv_query($conn, "SELECT COUNT(*) AS NewThisWeek FROM Member WHERE DATEPART(ISO_WEEK, date_joined) = DATEPART(ISO_WEEK, GETDATE()) AND DATEPART(YEAR, date_joined) = DATEPART(YEAR, GETDATE())");
+    if ($stmtWeek && $row = sqlsrv_fetch_array($stmtWeek, SQLSRV_FETCH_ASSOC)) {
+        $newThisWeek = (int)$row['NewThisWeek'];
+    }
+
+    // Previous month count
+    $stmtPrevMonth = sqlsrv_query($conn, "SELECT COUNT(*) AS PrevMonth FROM Member WHERE YEAR(date_joined) = YEAR(DATEADD(MONTH,-1,GETDATE())) AND MONTH(date_joined) = MONTH(DATEADD(MONTH,-1,GETDATE()))");
+    if ($stmtPrevMonth && $row = sqlsrv_fetch_array($stmtPrevMonth, SQLSRV_FETCH_ASSOC)) {
+        $prevMonthCount = (int)$row['PrevMonth'];
+    }
+
+    // Month-over-month percent
+    if ($prevMonthCount > 0) {
+        $momPct = (int)round((($newThisMonth - $prevMonthCount) / $prevMonthCount) * 100);
+    } else {
+        $momPct = $newThisMonth > 0 ? 100 : 0;
     }
 
     $stmtAdminStats = sqlsrv_query($conn, 'EXEC sp_GetAdminStats');
@@ -76,7 +148,9 @@ try {
         'summary' => [
             'totalMembers' => $totalMembers,
             'activeRentals' => $activeRentals,
-            'newThisMonth' => $newThisMonth
+            'newThisMonth' => $newThisMonth,
+            'newThisWeek' => $newThisWeek,
+            'monthOverMonthPct' => $momPct
         ],
         'members' => $members
     ]);
