@@ -59,8 +59,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Redirect based on user type
                 setTimeout(() => {
                     if (data.userType === 'admin') {
-                        window.location.href = 'profile.php';
+                        // Redirect admins straight to the dashboard
+                        window.location.href = 'dashboard.html';
                     } else {
+                        // Members go to their profile by default
                         window.location.href = 'profile.php';
                     }
                 }, 1500);

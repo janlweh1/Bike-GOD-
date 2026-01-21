@@ -8,6 +8,12 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type'])) {
     exit();
 }
 
+// If the logged-in user is an admin, redirect them to Settings
+if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
+    header('Location: settings.html');
+    exit();
+}
+
 // Database configuration
 $serverName = "localhost";
 $database = "BikeRental";

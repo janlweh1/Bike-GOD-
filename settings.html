@@ -138,27 +138,7 @@
                     <button class="secondary-btn" onclick="updatePassword()">Update Password</button>
                 </div>
 
-                <div class="settings-card">
-                    <h3>Account Activity</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Last Login:</span>
-                            <span class="info-value">Dec 26, 2025 10:30 AM</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Account Created:</span>
-                            <span class="info-value">Jan 15, 2024</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Total Logins:</span>
-                            <span class="info-value">1,234</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Status:</span>
-                            <span class="info-value" style="color: #27ae60;">Active</span>
-                        </div>
-                    </div>
-                </div>
+                <!-- Account Activity section removed per request -->
 
             </div>
 
@@ -604,9 +584,11 @@
         // Function to update name display
         function updateNameDisplay() {
             const fullName = document.getElementById('fullName').value || 'Admin';
+            const role = (document.getElementById('adminRole') && document.getElementById('adminRole').value) || '';
             const initials = getInitialsFromFullName(fullName);
             document.getElementById('profileNameOverlay').textContent = initials;
-            document.getElementById('headerUserName').textContent = fullName;
+            const label = role ? `${fullName} • ${role}` : fullName;
+            document.getElementById('headerUserName').textContent = label;
         }
 
         // Save personal info function
@@ -1157,5 +1139,7 @@
         }
     </script>
     <script src="logout.js"></script>
+    <!-- Role label updater -->
+    <script src="admin-header.js"></script>
 </body>
 </html>
