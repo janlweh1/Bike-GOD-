@@ -6,29 +6,82 @@ let currentExtendRentalId = null;
 let currentExtendPrice = 50;
 
 // Load rental data on page load
-function loadRentalData() {
+async function loadRentalData() {
     try {
         const storedRentals = localStorage.getItem('activeRentals');
         const storedHistory = localStorage.getItem('rentalHistory');
-        
-        if (storedRentals) {
-            activeRentals = JSON.parse(storedRentals);
+
+        activeRentals = storedRentals ? JSON.parse(storedRentals) : [];
+        rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
+
+        // Attempt to sync with server to reflect admin updates
+        await syncWithServer();
+
+        if (activeRentals.length > 0) {
             displayActiveRentals();
             startAllTimers();
+            document.getElementById('noActiveRental').style.display = 'none';
         } else {
             document.getElementById('noActiveRental').style.display = 'block';
         }
-        
-        if (storedHistory) {
-            rentalHistory = JSON.parse(storedHistory);
-        }
-        
+
         updateActiveRentalCount();
         displayHistory();
         updateStatistics();
     } catch (error) {
         console.error('Error loading rental data:', error);
         document.getElementById('noActiveRental').style.display = 'block';
+    }
+}
+
+// Sync local rentals with backend statuses so admin completions end member rentals
+async function syncWithServer() {
+    try {
+        const sessRes = await fetch('check_session.php', { credentials: 'include' });
+        const sess = await sessRes.json();
+        if (!sess || sess.loggedIn !== true || sess.userType !== 'member') {
+            return; // not logged as member; skip
+        }
+        const res = await fetch('get_member_rentals.php', { credentials: 'include', cache: 'no-store' });
+        const data = await res.json();
+        if (!data || data.success !== true || !Array.isArray(data.rentals)) {
+            return;
+        }
+        const serverById = new Map();
+        data.rentals.forEach(r => {
+            const idStr = String(r.rentalId);
+            serverById.set(idStr, r);
+        });
+        // Move any locally active rental to history if server says completed/cancelled
+        let changed = false;
+        activeRentals = activeRentals.filter(r => {
+            const srv = serverById.get(String(r.id));
+            if (!srv) return true; // keep if no server info
+            const st = (srv.status || '').toLowerCase();
+            if (st === 'completed' || st === 'cancelled') {
+                const endTimeIso = srv.returnDate ? (srv.returnDate + 'T00:00:00.000Z') : new Date().toISOString();
+                const completedRental = {
+                    ...r,
+                    endTime: endTimeIso,
+                    actualDuration: r.duration,
+                    status: st
+                };
+                rentalHistory.unshift(completedRental);
+                changed = true;
+                // Notify the user about server-side completion/cancellation
+                const verb = st === 'completed' ? 'completed by admin' : 'cancelled by admin';
+                showToast(`Your rental for ${r.name} was ${verb}.`);
+                return false; // remove from active
+            }
+            return true;
+        });
+        if (changed) {
+            localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
+            localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
+        }
+    } catch (e) {
+        // Silent fail; keep local view
+        console.warn('Server sync failed:', e);
     }
 }
 
@@ -473,3 +526,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Periodically refresh to reflect admin completions quickly
+setInterval(() => {
+    loadRentalData();
+}, 30000);
+
+// Lightweight toast notification
+function showToast(message) {
+    try {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.position = 'fixed';
+        toast.style.right = '20px';
+        toast.style.bottom = '20px';
+        toast.style.background = '#1f2937';
+        toast.style.color = '#fff';
+        toast.style.padding = '12px 16px';
+        toast.style.borderRadius = '8px';
+        toast.style.boxShadow = '0 6px 20px rgba(0,0,0,0.25)';
+        toast.style.fontSize = '14px';
+        toast.style.zIndex = '9999';
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        toast.style.transform = 'translateY(10px)';
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(10px)';
+            setTimeout(() => { toast.remove(); }, 200);
+        }, 4000);
+    } catch (e) {
+        // ignore toast errors
+    }
+}
