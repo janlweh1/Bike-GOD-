@@ -164,6 +164,29 @@ body {
     background-color: #f0f0f0;
 }
 
+/* Logout button (header) */
+.logout-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.logout-btn:active {
+    transform: translateY(0);
+}
+
 /* Settings Content */
 .settings-content {
     padding: 40px;
