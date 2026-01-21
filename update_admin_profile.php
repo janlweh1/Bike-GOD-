@@ -15,17 +15,18 @@ $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) { $input = $_POST; }
 $fullName = isset($input['full_name']) ? trim($input['full_name']) : '';
 $username = isset($input['username']) ? trim($input['username']) : '';
+$email = isset($input['email']) ? trim($input['email']) : null;
 
 if ($fullName === '' || $username === '') {
     echo json_encode(["success" => false, "error" => "invalid_input"]);
     exit;
 }
 
-$sql = "EXEC sp_UpdateAdminProfile @AdminID=?, @Username=?, @FullName=?";
-$params = [$adminId, $username, $fullName];
+$sql = "EXEC sp_UpdateAdminProfile @AdminID=?, @Username=?, @FullName=?, @Email=?";
+$params = [$adminId, $username, $fullName, $email];
 $stmt = sqlsrv_query($conn, $sql, $params);
 if ($stmt === false) {
-    echo json_encode(["success" => false, "error" => "update_failed"]);
+    echo json_encode(["success" => false, "error" => "update_failed", "detail" => sqlsrv_errors()]);
     exit;
 }
 

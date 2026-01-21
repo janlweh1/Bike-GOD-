@@ -37,6 +37,7 @@ echo json_encode([
         "username" => $row['username'],
         "full_name" => $row['full_name'],
         "role" => $row['role'],
+        "email" => isset($row['email']) ? $row['email'] : null,
         // Prefer DB photo_url; fallback to uploads directory
         "photo_url" => (function() use ($adminId, $row) {
             if (isset($row['photo_url']) && $row['photo_url']) {

@@ -61,6 +61,10 @@ if ($userType === 'admin') {
     $stmt = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt && $member = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $avatar = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop';
+        if (!empty($member['photo_url'])) {
+            $avatar = $member['photo_url'];
+        }
         $userData = [
             'id' => $member['Member_ID'],
             'username' => $member['username'],
@@ -69,7 +73,7 @@ if ($userType === 'admin') {
             'phone' => $member['contact_number'],
             'address' => $member['address'],
             'type' => 'member',
-            'avatar' => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
+            'avatar' => $avatar,
             'badge' => 'Gold Member',
             'join_date' => 'Member since ' . date('F Y', strtotime($member['date_joined']->format('Y-m-d')))
         ];
@@ -131,8 +135,8 @@ sqlsrv_close($conn);
     <section class="profile-header">
         <div class="profile-header-container">
             <div class="profile-avatar-wrapper">
-                <img src="<?php echo $userData['avatar']; ?>" alt="Profile Picture" class="profile-avatar">
-                <div class="avatar-edit-badge">
+                <img id="memberProfileImage" src="<?php echo $userData['avatar']; ?>" alt="Profile Picture" class="profile-avatar">
+                <div class="avatar-edit-badge" id="avatarEditBadge" title="Change photo">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M5 13L9 17L19 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -151,6 +155,14 @@ sqlsrv_close($conn);
             </div>
         </div>
     </section>
+
+    <?php if ($userData['type'] === 'member'): ?>
+    <input type="file" id="memberPhotoUpload" accept="image/*" style="display:none;">
+    <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:-12px;">
+        <button class="edit-btn" id="btnUploadMemberPhoto" style="padding:8px 12px;">Upload Photo</button>
+        <button class="edit-btn" id="btnRemoveMemberPhoto" style="padding:8px 12px;background:#ef4444;color:#fff;">Remove Photo</button>
+    </div>
+    <?php endif; ?>
 
     <!-- Profile Content -->
     <section class="profile-content">
@@ -328,6 +340,55 @@ sqlsrv_close($conn);
                 loadAdminStats();
             <?php else: ?>
                 loadMemberStats();
+                // Member photo handlers
+                const badge = document.getElementById('avatarEditBadge');
+                const uploader = document.getElementById('memberPhotoUpload');
+                const img = document.getElementById('memberProfileImage');
+                const btnUp = document.getElementById('btnUploadMemberPhoto');
+                const btnRm = document.getElementById('btnRemoveMemberPhoto');
+                if (badge) badge.addEventListener('click', () => uploader && uploader.click());
+                if (btnUp) btnUp.addEventListener('click', () => uploader && uploader.click());
+                if (uploader) uploader.addEventListener('change', async (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+                    if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
+                    if (file.size > 5 * 1024 * 1024) { alert('Max file size is 5MB.'); return; }
+                    try {
+                        // optimistic preview
+                        const fr = new FileReader();
+                        fr.onload = ev => { if (img) img.src = ev.target.result; };
+                        fr.readAsDataURL(file);
+                    } catch {}
+                    try {
+                        const fd = new FormData();
+                        fd.append('photo', file);
+                        const res = await fetch('upload_member_photo.php', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (data && data.success && data.url) {
+                            if (img) img.src = data.url;
+                            alert('Profile photo updated.');
+                        } else {
+                            alert('Upload failed.');
+                        }
+                    } catch (err) {
+                        alert('Failed to upload photo.');
+                    } finally {
+                        if (uploader) uploader.value = '';
+                    }
+                });
+                if (btnRm) btnRm.addEventListener('click', async () => {
+                    if (!confirm('Remove your profile photo?')) return;
+                    try {
+                        const res = await fetch('remove_member_photo.php', { method: 'POST' });
+                        const data = await res.json();
+                        if (data && data.success) {
+                            if (img) img.src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop';
+                            alert('Profile photo removed.');
+                        } else {
+                            alert('Failed to remove photo.');
+                        }
+                    } catch { alert('Failed to remove photo.'); }
+                });
             <?php endif; ?>
 
             // Add event listener for profile logout button

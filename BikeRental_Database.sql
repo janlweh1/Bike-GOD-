@@ -27,6 +27,7 @@ CREATE TABLE Admin (
     password NVARCHAR(255) NOT NULL,
     full_name NVARCHAR(100) NOT NULL,
     role NVARCHAR(50),
+    email NVARCHAR(100) NULL,
     photo_url NVARCHAR(255) NULL
 );
 GO
@@ -44,6 +45,7 @@ CREATE TABLE Member (
     email NVARCHAR(100) UNIQUE NOT NULL,
     password NVARCHAR(255) NOT NULL,
     address NVARCHAR(255),
+    photo_url NVARCHAR(255) NULL,
     date_joined DATETIME DEFAULT GETDATE()
 );
 GO
@@ -201,7 +203,7 @@ CREATE PROCEDURE sp_GetAdminProfile
     @AdminID INT
 AS
 BEGIN
-    SELECT Admin_ID, username, full_name, role, photo_url
+    SELECT Admin_ID, username, full_name, role, email, photo_url
     FROM Admin
     WHERE Admin_ID = @AdminID;
 END;
@@ -211,11 +213,12 @@ GO
 CREATE PROCEDURE sp_UpdateAdminProfile
     @AdminID INT,
     @Username NVARCHAR(50),
-    @FullName NVARCHAR(100)
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE Admin SET username = @Username, full_name = @FullName
+    UPDATE Admin SET username = @Username, full_name = @FullName, email = @Email
     WHERE Admin_ID = @AdminID;
 END;
 GO
@@ -225,7 +228,7 @@ CREATE PROCEDURE sp_GetMemberProfile
     @MemberID INT
 AS
 BEGIN
-    SELECT Member_ID, username, first_name, last_name, email, contact_number, address, date_joined
+    SELECT Member_ID, username, first_name, last_name, email, contact_number, address, photo_url, date_joined
     FROM Member
     WHERE Member_ID = @MemberID;
 END;
