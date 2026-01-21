@@ -61,3 +61,141 @@ function getInitials(fullName) {
     const last = (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '').toUpperCase();
     return (first + last) || first;
 }
+
+// Lightweight in-app notifications initializer for all admin pages
+(function () {
+    if (typeof window === 'undefined') return;
+    // Skip if panel already exists (dashboard.js may have set it up)
+    if (document.getElementById('notif-panel')) return;
+
+    let notifLastRentalId = null;
+    let notifLastPaymentId = null;
+    let notifQueue = [];
+
+    function initNotificationsUI() {
+        const btn = document.querySelector('.notification-btn');
+        if (!btn) return false;
+
+        // Badge
+        const badge = document.createElement('span');
+        badge.className = 'notif-badge';
+        badge.style.position = 'absolute';
+        badge.style.top = '6px';
+        badge.style.right = '6px';
+        badge.style.background = '#ef4444';
+        badge.style.color = '#fff';
+        badge.style.fontSize = '10px';
+        badge.style.lineHeight = '14px';
+        badge.style.padding = '0 5px';
+        badge.style.borderRadius = '8px';
+        badge.style.display = 'none';
+        badge.style.minWidth = '16px';
+        badge.style.textAlign = 'center';
+        btn.style.position = 'relative';
+        btn.appendChild(badge);
+
+        // Dropdown panel
+        const panel = document.createElement('div');
+        panel.id = 'notif-panel';
+        panel.style.position = 'absolute';
+        panel.style.top = '48px';
+        panel.style.right = '16px';
+        panel.style.width = '320px';
+        panel.style.maxHeight = '360px';
+        panel.style.overflowY = 'auto';
+        panel.style.background = '#fff';
+        panel.style.border = '1px solid #e5e7eb';
+        panel.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+        panel.style.borderRadius = '10px';
+        panel.style.display = 'none';
+        panel.style.zIndex = '1000';
+        panel.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:600;">Notifications</div><div id="notif-items"></div>';
+        document.body.appendChild(panel);
+
+        // Toggle panel
+        btn.addEventListener('click', () => {
+            const visible = panel.style.display === 'block';
+            panel.style.display = visible ? 'none' : 'block';
+            if (!visible) {
+                const b = btn.querySelector('.notif-badge');
+                if (b) b.style.display = 'none';
+            }
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!panel.contains(e.target) && !btn.contains(e.target)) {
+                panel.style.display = 'none';
+            }
+        });
+
+        return true;
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+    }
+
+    function pushNotification(text) {
+        notifQueue.unshift({ text, time: new Date().toLocaleString() });
+        notifQueue = notifQueue.slice(0, 20);
+        const items = document.getElementById('notif-items');
+        const badge = document.querySelector('.notification-btn .notif-badge');
+        if (items) {
+            items.innerHTML = notifQueue.map(n => `
+                <div style="padding:10px 12px;border-bottom:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-start;">
+                    <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;margin-top:6px;"></div>
+                    <div>
+                        <div style="font-size:13px;color:#111827;">${escapeHtml(n.text)}</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">${escapeHtml(n.time)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        if (badge) {
+            badge.textContent = String((parseInt(badge.textContent || '0', 10) || 0) + 1);
+            badge.style.display = 'inline-block';
+        }
+    }
+
+    async function checkNotifications() {
+        try {
+            // Rentals
+            const rRes = await fetch('get_rentals.php', { credentials: 'include' });
+            const rData = await rRes.json();
+            if (rData && rData.success && Array.isArray(rData.rentals)) {
+                const maxId = rData.rentals.reduce((m, r) => Math.max(m, parseInt(r.id || '0', 10) || 0), 0);
+                if (notifLastRentalId === null) {
+                    notifLastRentalId = maxId; // baseline
+                } else if (maxId > notifLastRentalId) {
+                    const newCount = rData.rentals.filter(r => (parseInt(r.id || '0', 10) || 0) > notifLastRentalId).length;
+                    pushNotification(`${newCount} new rental${newCount>1?'s':''} created`);
+                    notifLastRentalId = maxId;
+                }
+            }
+
+            // Payments
+            const pRes = await fetch('get_payments.php', { credentials: 'include' });
+            const pData = await pRes.json();
+            if (pData && pData.success && Array.isArray(pData.payments)) {
+                const maxPid = pData.payments.reduce((m, p) => Math.max(m, parseInt(p.id || '0', 10) || 0), 0);
+                if (notifLastPaymentId === null) {
+                    notifLastPaymentId = maxPid; // baseline
+                } else if (maxPid > notifLastPaymentId) {
+                    const newPayments = pData.payments.filter(p => (parseInt(p.id || '0', 10) || 0) > notifLastPaymentId);
+                    pushNotification(`${newPayments.length} new payment${newPayments.length>1?'s':''} received`);
+                    notifLastPaymentId = maxPid;
+                }
+            }
+        } catch (e) {
+            // silent
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const ok = initNotificationsUI();
+        if (!ok) return;
+        checkNotifications();
+        setInterval(checkNotifications, 15000);
+    });
+})();

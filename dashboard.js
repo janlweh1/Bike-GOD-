@@ -424,7 +424,12 @@ async function checkNotifications() {
 
 // Enhance init to also setup notifications
 document.addEventListener('DOMContentLoaded', () => {
+    if (window.__notifInit || document.getElementById('notif-panel')) {
+        window.__notifInit = true;
+        return;
+    }
     initNotificationsUI();
+    window.__notifInit = true;
     // Use a faster cadence for notifications than dashboard refresh
     checkNotifications();
     setInterval(checkNotifications, 15000);

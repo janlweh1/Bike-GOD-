@@ -356,60 +356,19 @@
             <div class="settings-section" id="notifications">
                 <div class="section-header">
                     <h2>Notification Settings</h2>
-                    <p>Manage notification preferences</p>
+                    <p>In-app notifications only for system events</p>
                 </div>
 
                 <div class="settings-card">
-                    <h3>Email Notifications</h3>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="email-new-rental" checked>
-                        <label for="email-new-rental">New rental created</label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="email-rental-completed" checked>
-                        <label for="email-rental-completed">Rental completed</label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="email-overdue" checked>
-                        <label for="email-overdue">Rental overdue</label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="email-payment" checked>
-                        <label for="email-payment">Payment received</label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="email-new-customer">
-                        <label for="email-new-customer">New customer registered</label>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <h3>SMS Notifications</h3>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="sms-rental-reminder" checked>
-                        <label for="sms-rental-reminder">Rental return reminder</label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="sms-overdue" checked>
-                        <label for="sms-overdue">Overdue notification</label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="sms-payment">
-                        <label for="sms-payment">Payment confirmation</label>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <h3>Reminder Settings</h3>
-                    <div class="form-group">
-                        <label>Send return reminder before</label>
-                        <select>
-                            <option value="1">1 Hour</option>
-                            <option value="3">3 Hours</option>
-                            <option value="12" selected>12 Hours</option>
-                            <option value="24">24 Hours</option>
-                        </select>
-                    </div>
+                    <h3>In-App Notifications</h3>
+                    <p style="color:#6b7280;margin:8px 0 16px;">
+                        The bell icon in the header shows live updates. Currently, the system notifies you about:
+                    </p>
+                    <ul style="margin:0;padding-left:18px;color:#374151;line-height:1.8;">
+                        <li>New rental created</li>
+                        <li>Payment received</li>
+                    </ul>
+                    <p style="color:#9ca3af;margin-top:12px;">Email/SMS notifications are not supported.</p>
                 </div>
             </div>
 
@@ -913,22 +872,7 @@
 
         // Security tab logic removed
 
-        // Disable Notifications interactions
-        function disableNotifications() {
-            const section = document.getElementById('notifications');
-            section.querySelectorAll('input, select, button').forEach(el => {
-                el.disabled = true;
-            });
-            const banner = document.createElement('div');
-            banner.style.background = '#fff3cd';
-            banner.style.color = '#856404';
-            banner.style.padding = '12px 16px';
-            banner.style.border = '1px solid #ffeeba';
-            banner.style.borderRadius = '8px';
-            banner.style.margin = '0 0 16px 0';
-            banner.textContent = 'Notifications settings are not available yet.';
-            section.insertBefore(banner, section.firstChild);
-        }
+        // No email/SMS notification settings; in-app only
 
         // Persistence helpers
         function getSettings() {
@@ -1002,7 +946,6 @@
         // Boot
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedSettings();
-            disableNotifications();
         });
 
         // Simple HTML escaping to prevent injection in dynamic content
