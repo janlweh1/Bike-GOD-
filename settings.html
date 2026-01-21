@@ -618,44 +618,58 @@
         document.getElementById('fullName').addEventListener('input', updateNameDisplay);
 
         // Photo upload functionality
-        document.getElementById('photoUpload').addEventListener('change', function(e) {
+        document.getElementById('photoUpload').addEventListener('change', async function(e) {
             const file = e.target.files[0];
-            if (file) {
-                // Check if file is an image
-                if (!file.type.startsWith('image/')) {
-                    alert('Please select an image file.');
-                    return;
-                }
-                
-                // Check file size (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('File size must be less than 5MB.');
-                    return;
-                }
-                
-                // Create a FileReader to read the image
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
+            if (file.size > 5 * 1024 * 1024) { alert('File size must be less than 5MB.'); return; }
+
+            // Quick preview while uploading
+            try {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    // Update the profile images
                     document.getElementById('profileImage').src = event.target.result;
                     document.getElementById('headerProfileImage').src = event.target.result;
-                    // Hide the name overlay when custom photo is uploaded
-                    document.getElementById('profileNameOverlay').style.display = 'none';
                 };
                 reader.readAsDataURL(file);
+            } catch {}
+
+            // Upload to server
+            try {
+                const fd = new FormData();
+                fd.append('photo', file);
+                const res = await fetch('upload_admin_photo.php', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data && data.success && data.url) {
+                    document.getElementById('profileImage').src = data.url;
+                    document.getElementById('headerProfileImage').src = data.url;
+                    document.getElementById('profileNameOverlay').style.display = 'none';
+                    alert('Profile photo updated.');
+                } else {
+                    alert('Upload failed.');
+                }
+            } catch (err) {
+                alert('Failed to upload photo.');
             }
         });
 
         // Remove photo functionality
-        function removePhoto() {
-            if (confirm('Are you sure you want to remove your profile photo?')) {
-                // Reset to default profile image
-                document.getElementById('profileImage').src = 'profuser.png';
-                document.getElementById('headerProfileImage').src = 'profuser.png';
-                // Show the name overlay again
-                document.getElementById('profileNameOverlay').style.display = 'flex';
-                // Clear the file input
-                document.getElementById('photoUpload').value = '';
+        async function removePhoto() {
+            if (!confirm('Are you sure you want to remove your profile photo?')) return;
+            try {
+                const res = await fetch('remove_admin_photo.php', { method: 'POST' });
+                const data = await res.json();
+                if (data && data.success) {
+                    document.getElementById('profileImage').src = 'profuser.png';
+                    document.getElementById('headerProfileImage').src = 'profuser.png';
+                    document.getElementById('profileNameOverlay').style.display = 'flex';
+                    document.getElementById('photoUpload').value = '';
+                    alert('Profile photo removed.');
+                } else {
+                    alert('Failed to remove photo.');
+                }
+            } catch (e) {
+                alert('Failed to remove photo.');
             }
         }
 
@@ -668,6 +682,11 @@
                 document.getElementById('fullName').value = a.full_name || 'Admin';
                 document.getElementById('adminUsername').value = a.username || 'admin';
                 document.getElementById('adminRole').value = a.role || '';
+                if (a.photo_url) {
+                    document.getElementById('profileImage').src = a.photo_url;
+                    document.getElementById('headerProfileImage').src = a.photo_url;
+                    document.getElementById('profileNameOverlay').style.display = 'none';
+                }
                 updateNameDisplay();
             } catch {}
         }

@@ -10,16 +10,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const name = (data.admin.full_name || '').trim();
         const label = (name && role) ? `${name} • ${role}` : (name || role || 'Admin');
         // Prefer explicit header span within .user-profile; fallback to #headerUserName
-        const el = document.querySelector('.header-right .user-profile span') || document.getElementById('headerUserName');
+        const profileEl = document.querySelector('.header-right .user-profile');
+        const imgEl = (profileEl && profileEl.querySelector('img')) || document.getElementById('headerProfileImage');
+        const el = (profileEl && profileEl.querySelector('span')) || document.getElementById('headerUserName');
         if (el) {
             el.textContent = label;
         }
 
-        // Show initials badge next to the header label
-        const userProfile = document.querySelector('.header-right .user-profile');
-        if (userProfile && name) {
+        // Prefer actual photo if available; else show initials badge
+        const photoUrl = (data.admin.photo_url || '').trim();
+        if (imgEl && photoUrl) {
+            imgEl.src = photoUrl;
+            imgEl.style.display = 'inline-block';
+            // Remove existing initials badge if any
+            const existing = profileEl ? profileEl.querySelector('.user-initials-badge') : null;
+            if (existing) existing.remove();
+        } else if (profileEl && name) {
             const initials = getInitials(name);
-            let badge = userProfile.querySelector('.user-initials-badge');
+            let badge = profileEl.querySelector('.user-initials-badge');
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'user-initials-badge';
@@ -35,9 +43,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 badge.style.fontWeight = '600';
                 badge.style.marginRight = '8px';
                 // Place before the name label
-                const img = userProfile.querySelector('img');
+                const img = imgEl;
                 if (img) { img.style.display = 'none'; }
-                userProfile.insertBefore(badge, el);
+                profileEl.insertBefore(badge, el);
             }
             badge.textContent = initials;
         }

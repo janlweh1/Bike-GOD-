@@ -26,7 +26,8 @@ CREATE TABLE Admin (
     username NVARCHAR(50) UNIQUE NOT NULL,
     password NVARCHAR(255) NOT NULL,
     full_name NVARCHAR(100) NOT NULL,
-    role NVARCHAR(50)
+    role NVARCHAR(50),
+    photo_url NVARCHAR(255) NULL
 );
 GO
 
@@ -200,7 +201,7 @@ CREATE PROCEDURE sp_GetAdminProfile
     @AdminID INT
 AS
 BEGIN
-    SELECT Admin_ID, username, full_name, role
+    SELECT Admin_ID, username, full_name, role, photo_url
     FROM Admin
     WHERE Admin_ID = @AdminID;
 END;
