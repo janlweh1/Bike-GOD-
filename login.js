@@ -62,8 +62,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Redirect admins straight to the dashboard
                         window.location.href = 'dashboard.html';
                     } else {
-                        // Members go to their profile by default
-                        window.location.href = 'profile.php';
+                        // Members go to their home page (not profile)
+                        window.location.href = 'user_home.html';
                     }
                 }, 1500);
             } else {
