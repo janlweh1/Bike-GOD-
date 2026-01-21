@@ -2,9 +2,18 @@
 // Returns rentals list and summary for admin rentals page
 session_start();
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+// Prevent PHP warnings/notices from breaking JSON output
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+// Capture any accidental output (warnings/notices) so we can clean before JSON
+ob_start();
 // Restrict to admin users only
 if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
     http_response_code(401);
+    if (ob_get_length()) { ob_clean(); }
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();
 }
@@ -12,6 +21,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 require_once __DIR__ . '/db_config.php';
 $conn = getConnection();
 if ($conn === null) {
+    if (ob_get_length()) { ob_clean(); }
     echo json_encode(['success' => false, 'message' => 'Database connection failed']);
     exit();
 }
@@ -21,8 +31,37 @@ function fmt_date($d) { return $d instanceof DateTime ? $d->format('Y-m-d') : nu
 function fmt_time($t) { return $t instanceof DateTime ? $t->format('H:i') : null; }
 
 try {
+    // Detect if Rentals has return_time column
+    $hasReturnTimeCol = false;
+    $colStmt = sqlsrv_query($conn, "SELECT 1 AS X FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Rentals' AND COLUMN_NAME = 'return_time'");
+    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) { $hasReturnTimeCol = true; }
+
     // Fetch rentals joined with member & bike; include latest return if present
-    $sql = "
+    $sql = (
+        $hasReturnTimeCol
+        ? "
+        SELECT r.Rental_ID,
+               r.rental_date,
+               r.rental_time,
+               r.return_date AS planned_return_date,
+               r.return_time AS planned_return_time,
+               r.status,
+               m.first_name, m.last_name, m.email, m.contact_number,
+               b.bike_name_model, b.bike_type, b.hourly_rate,
+               rr.return_date AS actual_return_date,
+               rr.return_time AS actual_return_time
+        FROM Rentals r
+        INNER JOIN Member m ON m.Member_ID = r.member_id
+        INNER JOIN Bike b ON b.Bike_ID = r.bike_id
+        OUTER APPLY (
+            SELECT TOP 1 return_date, return_time
+            FROM Returns x
+            WHERE x.rental_id = r.Rental_ID
+            ORDER BY x.Return_ID DESC
+        ) rr
+        ORDER BY r.Rental_ID DESC
+    "
+        : "
         SELECT r.Rental_ID,
                r.rental_date,
                r.rental_time,
@@ -42,7 +81,8 @@ try {
             ORDER BY x.Return_ID DESC
         ) rr
         ORDER BY r.Rental_ID DESC
-    ";
+    "
+    );
 
     $stmt = sqlsrv_query($conn, $sql);
     if ($stmt === false) {
@@ -71,8 +111,9 @@ try {
         // Determine end/planned end
         $plannedEndDt = null;
         if ($plannedReturnDate instanceof DateTime && $startDt) {
-            // Assume same time-of-day return as pickup time if no explicit return time in Rentals
-            $plannedEndDt = new DateTime($plannedReturnDate->format('Y-m-d') . ' ' . ($startTime instanceof DateTime ? $startTime->format('H:i:s') : '00:00:00'));
+            $plannedEndDt = new DateTime($plannedReturnDate->format('Y-m-d') . ' ' . (
+                ($row['planned_return_time'] instanceof DateTime) ? $row['planned_return_time']->format('H:i:s') : (($startTime instanceof DateTime) ? $startTime->format('H:i:s') : '00:00:00')
+            ));
         }
 
         $actualEndDt = null;
@@ -163,6 +204,7 @@ try {
         $sumRevenueToday = (float)$rowR['Revenue'];
     }
 
+    if (ob_get_length()) { ob_clean(); }
     echo json_encode([
         'success' => true,
         'summary' => [
@@ -175,6 +217,7 @@ try {
     ]);
 
 } catch (Exception $e) {
+    if (ob_get_length()) { ob_clean(); }
     echo json_encode(['success' => false, 'message' => 'Error loading rentals']);
 }
 

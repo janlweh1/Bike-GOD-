@@ -14,6 +14,9 @@ async function loadRentalData() {
         activeRentals = storedRentals ? JSON.parse(storedRentals) : [];
         rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
 
+        // Strip deprecated location field from any existing entries
+        stripLocationFields();
+
         // Attempt to sync with server to reflect admin updates
         await syncWithServer();
 
@@ -31,6 +34,21 @@ async function loadRentalData() {
     } catch (error) {
         console.error('Error loading rental data:', error);
         document.getElementById('noActiveRental').style.display = 'block';
+    }
+}
+
+// Remove location properties from stored rentals/history for consistency
+function stripLocationFields() {
+    let changed = false;
+    activeRentals.forEach(r => { if ('location' in r) { delete r.location; changed = true; } });
+    rentalHistory.forEach(r => { if ('location' in r) { delete r.location; changed = true; } });
+    if (changed) {
+        try {
+            localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
+            localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
+        } catch (e) {
+            // ignore storage errors
+        }
     }
 }
 
@@ -168,7 +186,6 @@ function displayActiveRentals() {
                             <p class="bike-type">${rental.category.charAt(0).toUpperCase() + rental.category.slice(1)} Bike</p>
                             <p class="rental-info">Booked: ${formatted.date} ${formatted.time}</p>
                             <p class="rental-info">Scheduled Start: ${scheduledFormatted.date} ${scheduledFormatted.time}</p>
-                            <p class="rental-info">Location: ${rental.location || 'Downtown Station A'}</p>
                             <p class="rental-info">Total Cost: ₱${rental.cost.toFixed(2)}</p>
                         </div>
 
@@ -406,7 +423,7 @@ function displayHistory() {
         if (rentalHistory.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 3rem; color: #64748b;">
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b;">
                         No rental history yet. Start renting bikes to see your history here!
                     </td>
                 </tr>
@@ -433,7 +450,6 @@ function displayHistory() {
                         </div>
                     </td>
                     <td>${rental.actualDuration || rental.duration} hour(s)</td>
-                    <td>${rental.location || 'Downtown Station A'}</td>
                     <td class="cost">₱${rental.cost.toFixed(2)}</td>
                     <td><span class="status-badge ${rental.status}">${rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}</span></td>
                 </tr>

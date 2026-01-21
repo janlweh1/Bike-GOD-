@@ -168,9 +168,6 @@
   }
 
   async function confirmRental() {
-    const fullName = document.getElementById('fullName').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const phone = document.getElementById('phone').value.trim();
     const duration = parseInt(document.getElementById('duration').value, 10) || 0;
     const pickupDate = document.getElementById('pickupDate').value;
     const pickupTime = document.getElementById('pickupTime').value;
@@ -179,7 +176,7 @@
       alert('No bike selected.');
       return;
     }
-    if (!fullName || !email || !phone || !pickupDate || !pickupTime || duration < 1) {
+    if (!pickupDate || !pickupTime || duration < 1) {
       alert('Please fill in all required fields');
       return;
     }
@@ -229,10 +226,6 @@
         startTime: new Date().toISOString(),
         pickupDate,
         pickupTime,
-        customerName: fullName,
-        customerEmail: email,
-        customerPhone: phone,
-        location: 'Downtown Station A',
         cost: (Number(selectedBike.price) || 0) * duration
       });
       localStorage.setItem('activeRentals', JSON.stringify(arr));

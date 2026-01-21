@@ -123,6 +123,7 @@
         if (ridEl) ridEl.value = '#' + rid;
         openModal();
         updateExpectedAmount();
+        updateCustomerFromRentalId();
       }
     }, { once: true });
   }
@@ -155,6 +156,28 @@
     } catch (err) {
       const hint = document.getElementById('amountHint');
       if (hint) hint.textContent = '';
+    }
+  }
+
+  async function updateCustomerFromRentalId() {
+    try {
+      const rentalIdRaw = (document.getElementById('rentalId')?.value || '').trim();
+      const rentalId = parseInt(rentalIdRaw.replace(/[^0-9]/g, ''), 10);
+      const field = document.getElementById('customerName');
+      const hint = document.getElementById('customerHint');
+      if (!field) return;
+      if (!rentalId || isNaN(rentalId)) { field.value = ''; if (hint) hint.textContent = ''; return; }
+      if (hint) hint.textContent = 'Looking up customer...';
+      const res = await fetch('get_rental_info.php?rentalId=' + encodeURIComponent(String(rentalId)), { credentials: 'include', cache: 'no-store' });
+      const data = await res.json();
+      if (!data.success) { field.value = ''; if (hint) hint.textContent = 'Rental not found.'; return; }
+      field.value = data.customerName || '';
+      if (hint) hint.textContent = '';
+    } catch (e) {
+      const field = document.getElementById('customerName');
+      const hint = document.getElementById('customerHint');
+      if (field) field.value = '';
+      if (hint) hint.textContent = 'Unable to fetch customer.';
     }
   }
 
@@ -285,7 +308,6 @@
     const payload = {
       transactionId: document.getElementById('transactionId').value,
       rentalId: rentalId,
-      customerName: document.getElementById('customerName').value,
       amount: parseFloat(document.getElementById('amount').value),
       paymentMethod: document.getElementById('paymentMethod').value,
       paymentDate: document.getElementById('paymentDate').value,
@@ -330,11 +352,12 @@
     const rid = document.getElementById('rentalId');
     const pd = document.getElementById('paymentDate');
     const pt = document.getElementById('paymentTime');
-    if (rid) rid.addEventListener('change', updateExpectedAmount);
+    if (rid) rid.addEventListener('change', () => { updateExpectedAmount(); updateCustomerFromRentalId(); });
     if (pd) pd.addEventListener('change', updateExpectedAmount);
     if (pt) pt.addEventListener('change', updateExpectedAmount);
     // initial compute
     updateExpectedAmount();
+    updateCustomerFromRentalId();
       // Delegate confirm button clicks
       const tbody = document.getElementById('paymentsTbody');
       if (tbody) {

@@ -64,21 +64,45 @@ try {
     sqlsrv_begin_transaction($conn);
 
     // Insert rental and return new ID using OUTPUT clause
-    $ins = sqlsrv_query(
-        $conn,
-        'INSERT INTO Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, status)
-         OUTPUT INSERTED.Rental_ID
-         VALUES (?, ?, ?, CONVERT(date, ?), CONVERT(time, ?), CONVERT(date, ?), ?);',
-        [
-            $memberId,
-            $bikeId,
-            $adminId,
-            $pickupDt->format('Y-m-d'),
-            $pickupDt->format('H:i:s'),
-            $plannedReturnDate,
-            $rentalStatus
-        ]
-    );
+    // Insert rental; include planned return_time if column exists
+    $hasReturnTimeCol = false;
+    $colStmt = sqlsrv_query($conn, "SELECT 1 AS X FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Rentals' AND COLUMN_NAME = 'return_time'");
+    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) { $hasReturnTimeCol = true; }
+
+    if ($hasReturnTimeCol) {
+        $ins = sqlsrv_query(
+            $conn,
+            'INSERT INTO Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, return_time, status)
+             OUTPUT INSERTED.Rental_ID
+             VALUES (?, ?, ?, CONVERT(date, ?), CONVERT(time, ?), CONVERT(date, ?), CONVERT(time, ?), ?);',
+            [
+                $memberId,
+                $bikeId,
+                $adminId,
+                $pickupDt->format('Y-m-d'),
+                $pickupDt->format('H:i:s'),
+                $plannedReturnDate,
+                $endDt->format('H:i:s'),
+                $rentalStatus
+            ]
+        );
+    } else {
+        $ins = sqlsrv_query(
+            $conn,
+            'INSERT INTO Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, status)
+             OUTPUT INSERTED.Rental_ID
+             VALUES (?, ?, ?, CONVERT(date, ?), CONVERT(time, ?), CONVERT(date, ?), ?);',
+            [
+                $memberId,
+                $bikeId,
+                $adminId,
+                $pickupDt->format('Y-m-d'),
+                $pickupDt->format('H:i:s'),
+                $plannedReturnDate,
+                $rentalStatus
+            ]
+        );
+    }
     if ($ins === false) { throw new Exception('Failed to insert rental: ' . print_r(sqlsrv_errors(), true)); }
 
     $newId = null;

@@ -5,12 +5,30 @@ let currentRentalForComplete = null;
 let latestSummary = null;
 
 // Load rental data on page load
+function setFetchInfo(text) {
+    const el = document.getElementById('rentalsFetchInfo');
+    if (el) el.textContent = text || '';
+}
+
 function loadRentalData() {
+    setFetchInfo('Loading...');
     // Prefer server data; fallback to local data if unavailable
-    fetch('get_rentals.php', { credentials: 'include' })
-        .then(res => res.json())
+    fetch('get_rentals.php?t=' + Date.now(), { credentials: 'include', cache: 'no-store' })
+        .then(async res => {
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (!ct.includes('application/json')) {
+                const txt = await res.text();
+                const snippet = (txt || '').slice(0, 300);
+                throw new Error(`HTTP ${res.status} ${res.statusText} • Non-JSON: ${snippet}`);
+            }
+            const data = await res.json();
+            if (!res.ok || !data || data.success === false) {
+                const msg = (data && (data.message || data.error)) ? data.message || data.error : `HTTP ${res.status}`;
+                throw new Error(msg);
+            }
+            return data;
+        })
         .then(data => {
-            if (!data || data.success === false) throw new Error('Failed to load from server');
             const rentals = Array.isArray(data.rentals) ? data.rentals : [];
             // Normalize and sort
             allRentals = rentals.map(r => ({
@@ -24,23 +42,13 @@ function loadRentalData() {
             latestSummary = data.summary || null;
             updateStatistics(latestSummary);
             displayRentals();
+            const last = allRentals[0];
+            setFetchInfo(`${allRentals.length} rental(s) loaded` + (last && last.id ? ` • Latest #${last.id}` : ''));
         })
         .catch(err => {
-            console.warn('Server rentals unavailable, falling back to local', err);
-            try {
-                const storedActiveRentals = localStorage.getItem('activeRentals');
-                const activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
-                const storedHistory = localStorage.getItem('rentalHistory');
-                const rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
-                allRentals = [...activeRentals, ...rentalHistory];
-                allRentals.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-                filteredRentals = [...allRentals];
-                updateStatistics();
-                displayRentals();
-            } catch (error) {
-                console.error('Error loading rental data:', error);
-                displayNoData();
-            }
+            console.error('Error loading rentals from server:', err);
+            displayNoData();
+            setFetchInfo('Failed to load.');
         });
 }
 
@@ -405,6 +413,8 @@ function closeModal(modalId) {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadRentalData();
+    const rbtn = document.getElementById('refreshRentalsBtn');
+    if (rbtn) rbtn.addEventListener('click', loadRentalData);
     
     // Filter event listeners
     document.getElementById('filterStatus').addEventListener('change', applyFilters);
