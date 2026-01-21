@@ -175,7 +175,39 @@ try {
         ],
         'methodSums' => $methodSums,
         'payments' => $payments,
-        'activity' => $act
+        'activity' => $act,
+        // Rentals without a completed payment (unpaid)
+        'unpaidRentals' => (function() use ($conn) {
+            $list = [];
+            $sqlU = "
+                SELECT r.Rental_ID,
+                       r.rental_date,
+                       r.rental_time,
+                       r.status AS rental_status,
+                       m.first_name, m.last_name,
+                       b.bike_name_model
+                FROM Rentals r
+                INNER JOIN Member m ON m.Member_ID = r.member_id
+                INNER JOIN Bike b ON b.Bike_ID = r.bike_id
+                LEFT JOIN Payments p ON p.rental_id = r.Rental_ID AND p.status = 'completed'
+                WHERE p.Payment_ID IS NULL
+                ORDER BY r.Rental_ID DESC";
+            $stU = sqlsrv_query($conn, $sqlU);
+            if ($stU) {
+                while ($row = sqlsrv_fetch_array($stU, SQLSRV_FETCH_ASSOC)) {
+                    $name = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
+                    $list[] = [
+                        'rentalId' => (int)$row['Rental_ID'],
+                        'customerName' => $name,
+                        'bikeModel' => (string)($row['bike_name_model'] ?? ''),
+                        'pickupDate' => ($row['rental_date'] instanceof DateTime) ? $row['rental_date']->format('Y-m-d') : null,
+                        'pickupTime' => ($row['rental_time'] instanceof DateTime) ? $row['rental_time']->format('H:i') : null,
+                        'status' => strtolower((string)($row['rental_status'] ?? ''))
+                    ];
+                }
+            }
+            return $list;
+        })()
     ]);
 
 } catch (Exception $e) {

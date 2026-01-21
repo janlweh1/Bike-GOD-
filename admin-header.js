@@ -71,6 +71,7 @@ function getInitials(fullName) {
     let notifLastRentalId = null;
     let notifLastPaymentId = null;
     let notifQueue = [];
+    let isAdminSession = null;
 
     function initNotificationsUI() {
         const btn = document.querySelector('.notification-btn');
@@ -160,22 +161,56 @@ function getInitials(fullName) {
 
     async function checkNotifications() {
         try {
+            // Ensure admin session before polling secured endpoints
+            if (isAdminSession !== true) {
+                try {
+                    const s = await fetch('check_session.php', { credentials: 'include', cache: 'no-store' });
+                    const sj = await s.json();
+                    isAdminSession = !!(sj && sj.loggedIn === true && sj.userType === 'admin');
+                } catch {}
+                if (isAdminSession !== true) {
+                    // Show a subtle hint only once
+                    if (!document.getElementById('notif-items') || document.getElementById('notif-items').dataset.hintShown !== '1') {
+                        const items = document.getElementById('notif-items');
+                        if (items) {
+                            items.dataset.hintShown = '1';
+                            items.innerHTML = '<div style="padding:10px 12px;color:#6b7280;">Sign in as admin to receive live notifications.</div>';
+                        }
+                    }
+                    return; // skip until admin session is present
+                }
+            }
             // Rentals
-            const rRes = await fetch('get_rentals.php', { credentials: 'include' });
+            const rRes = await fetch('get_rentals.php?ts=' + Date.now(), { credentials: 'include', cache: 'no-store' });
+            if (!rRes.ok) return;
             const rData = await rRes.json();
             if (rData && rData.success && Array.isArray(rData.rentals)) {
                 const maxId = rData.rentals.reduce((m, r) => Math.max(m, parseInt(r.id || '0', 10) || 0), 0);
                 if (notifLastRentalId === null) {
+                    // Clamp stored last id to current max range
                     notifLastRentalId = maxId; // baseline
                 } else if (maxId > notifLastRentalId) {
-                    const newCount = rData.rentals.filter(r => (parseInt(r.id || '0', 10) || 0) > notifLastRentalId).length;
-                    pushNotification(`${newCount} new rental${newCount>1?'s':''} created`);
+                    const newRentals = rData.rentals.filter(r => (parseInt(r.id || '0', 10) || 0) > notifLastRentalId);
+                    const newCount = newRentals.length;
+                    // Compose a concise message; include first bike/customer if available
+                    if (newCount === 1) {
+                        const one = newRentals[0];
+                        const who = (one && one.customerName) ? ` by ${one.customerName}` : '';
+                        const what = (one && one.name) ? `: ${one.name}` : '';
+                        pushNotification(`New rental${who}${what}`);
+                    } else {
+                        pushNotification(`${newCount} new rentals created`);
+                    }
+                    notifLastRentalId = maxId;
+                } else if (maxId < notifLastRentalId) {
+                    // DB reset or different environment; re-baseline to avoid permanent suppression
                     notifLastRentalId = maxId;
                 }
             }
 
             // Payments
-            const pRes = await fetch('get_payments.php', { credentials: 'include' });
+            const pRes = await fetch('get_payments.php?ts=' + Date.now(), { credentials: 'include', cache: 'no-store' });
+            if (!pRes.ok) return;
             const pData = await pRes.json();
             if (pData && pData.success && Array.isArray(pData.payments)) {
                 const maxPid = pData.payments.reduce((m, p) => Math.max(m, parseInt(p.id || '0', 10) || 0), 0);
@@ -193,9 +228,27 @@ function getInitials(fullName) {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const ok = initNotificationsUI();
-        if (!ok) return;
-        checkNotifications();
-        setInterval(checkNotifications, 15000);
+        let attempts = 0;
+        const maxAttempts = 30; // ~15s total with 500ms interval
+        const timer = setInterval(() => {
+            attempts += 1;
+            const ok = initNotificationsUI();
+            if (ok) {
+                clearInterval(timer);
+                // Load last seen id from storage
+                try {
+                    const v = localStorage.getItem('notifLastRentalId');
+                    if (v) notifLastRentalId = parseInt(v, 10) || null;
+                } catch {}
+                checkNotifications();
+                setInterval(() => {
+                    checkNotifications().then(() => {
+                        try { if (notifLastRentalId != null) localStorage.setItem('notifLastRentalId', String(notifLastRentalId)); } catch {}
+                    });
+                }, 5000);
+            } else if (attempts >= maxAttempts) {
+                clearInterval(timer);
+            }
+        }, 500);
     });
 })();

@@ -83,9 +83,48 @@
       renderMethodSums(data.methodSums || {});
       renderPayments(data.payments || []);
       renderActivity(data.activity || []);
+      renderUnpaidRentals(data.unpaidRentals || []);
     } catch (err) {
       console.error('Error loading payments:', err);
     }
+  }
+  function renderUnpaidRentals(items) {
+    const tbody = document.getElementById('unpaidRentalsTbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#7f8c8d;">No unpaid rentals found</td></tr>';
+      return;
+    }
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      const startStr = [r.pickupDate || '', r.pickupTime || ''].filter(Boolean).join(' ');
+      const status = (r.status || '').toLowerCase();
+      tr.innerHTML = `
+        <td><span class="rental-id">#${escapeHtml(String(r.rentalId))}</span></td>
+        <td>${escapeHtml(r.customerName || '')}</td>
+        <td>${escapeHtml(r.bikeModel || '')}</td>
+        <td>${escapeHtml(startStr)}</td>
+        <td><span class="status-badge ${statusClass(status)}">${escapeHtml(titleCase(status || ''))}</span></td>
+        <td>
+          <button class="action-btn record" title="Record Payment" data-rental-id="${escapeHtml(String(r.rentalId))}">
+            <span class="icon"><img src="wallet-arrow.png"></span>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    // quick action: prefill modal with rental id
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.action-btn.record');
+      if (btn) {
+        const rid = btn.getAttribute('data-rental-id') || '';
+        const ridEl = document.getElementById('rentalId');
+        if (ridEl) ridEl.value = '#' + rid;
+        openModal();
+        updateExpectedAmount();
+      }
+    }, { once: true });
   }
 
   async function updateExpectedAmount() {
