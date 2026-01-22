@@ -314,13 +314,14 @@ function endRental(rentalId) {
         // Determine whether this is an early end (before planned duration is used)
         let isEarly = false;
         let remainingSeconds = 0;
+        let elapsedSeconds = 0;
         if (rentalStarted) {
             try {
                 const now = new Date();
                 const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
-                const elapsed = Math.max(0, Math.floor((now - scheduledStart) / 1000));
+                elapsedSeconds = Math.max(0, Math.floor((now - scheduledStart) / 1000));
                 const totalSeconds = (rental.duration || 0) * 3600;
-                remainingSeconds = Math.max(0, totalSeconds - elapsed);
+                remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
                 isEarly = remainingSeconds > 0;
             } catch (e) {
                 console.warn('Failed to compute early-end status:', e);
@@ -344,28 +345,58 @@ function endRental(rentalId) {
 
         bikeNameEl.textContent = rental.name;
 
+        const cancelBtn = document.getElementById('cancelRentalBtn');
+
         if (!rentalStarted) {
             // Future booking that hasn't started yet → simple cancel modal
             titleEl.textContent = 'Cancel Rental';
             subtitleEl.textContent = 'This rental has not started yet. You can cancel it with no ride time used.';
             if (timeRowEl) timeRowEl.style.display = 'none';
             pendingEndAction = 'cancel';
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.style.opacity = '';
+                cancelBtn.style.cursor = '';
+            }
         } else if (isEarly) {
             // Rental already started but still has remaining time → show remaining
-            titleEl.textContent = 'End Rental Early?';
-            subtitleEl.textContent = 'You still have remaining time on this rental. You can end your ride now or cancel the rental.';
             if (timeRowEl) timeRowEl.style.display = '';
 
             const hours = Math.floor(remainingSeconds / 3600);
             const minutes = Math.floor((remainingSeconds % 3600) / 60);
             const seconds = remainingSeconds % 60;
-            timeRemainingEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            timeRemainingEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).toString().padStart(2, '0')}`;
+
+            if (elapsedSeconds <= 300) {
+                // Within 5-minute window: allow true cancellation without fee
+                titleEl.textContent = 'End Rental Early?';
+                subtitleEl.textContent = 'You are still within 5 minutes of your start time. You can cancel now and you will not be charged, or end your ride and pay for the time used.';
+                if (cancelBtn) {
+                    cancelBtn.disabled = false;
+                    cancelBtn.style.opacity = '';
+                    cancelBtn.style.cursor = '';
+                }
+            } else {
+                // Past 5-minute window: disable cancellation, only allow end ride
+                titleEl.textContent = 'End Rental';
+                subtitleEl.textContent = 'Cancellation is only allowed within the first 5 minutes. You can end your ride now and rental charges will apply.';
+                if (cancelBtn) {
+                    cancelBtn.disabled = true;
+                    cancelBtn.style.opacity = '0.5';
+                    cancelBtn.style.cursor = 'not-allowed';
+                }
+            }
         } else {
             // Rental started and is at/after planned end → normal completion
             titleEl.textContent = 'End Rental';
             subtitleEl.textContent = 'Your booked time is finished. Ending now will complete this rental.';
             if (timeRowEl) timeRowEl.style.display = 'none';
             pendingEndAction = 'complete';
+            if (cancelBtn) {
+                cancelBtn.disabled = true;
+                cancelBtn.style.opacity = '0.5';
+                cancelBtn.style.cursor = 'not-allowed';
+            }
         }
 
         modal.classList.add('active');

@@ -171,9 +171,12 @@ try {
         $momPct = $newThisMonth > 0 ? 100 : 0;
     }
 
-    $stmtAdminStats = sqlsrv_query($conn, 'EXEC sp_GetAdminStats');
-    if ($stmtAdminStats && $row = sqlsrv_fetch_array($stmtAdminStats, SQLSRV_FETCH_ASSOC)) {
-        $activeRentals = (int)$row['ActiveRentals'];
+    // Count how many members currently have at least one active/ongoing booking.
+    // In your DB, upcoming/ongoing rentals are stored as 'Pending', so we
+    // count those (and also 'Active' if present) to match the real data.
+    $stmtActiveMembers = sqlsrv_query($conn, "SELECT COUNT(DISTINCT member_id) AS Cnt FROM Rentals WHERE status IN ('Pending','Active')");
+    if ($stmtActiveMembers && $row = sqlsrv_fetch_array($stmtActiveMembers, SQLSRV_FETCH_ASSOC)) {
+        $activeRentals = (int)$row['Cnt'];
     }
 
     echo json_encode([

@@ -72,11 +72,32 @@ try {
 
     $hasStarted = $startDt && ($now >= $startDt);
 
+    // Cancellation window logic:
+    // - Customer may cancel any time before start.
+    // - Once started, they may cancel only within the first 5 minutes.
+    // - After that, cancellation is no longer allowed; only completion.
+    $canCancelWindow = true; // default safe; tightened below when we have start datetime
+    if ($startDt instanceof DateTime) {
+        if ($now < $startDt) {
+            $canCancelWindow = true; // before ride starts
+        } else {
+            $elapsedSeconds = $now->getTimestamp() - $startDt->getTimestamp();
+            $canCancelWindow = ($elapsedSeconds <= 300); // 5 minutes * 60 seconds
+        }
+    }
+
     // Normalise requested action; if not provided or invalid, we fall back
     // to legacy behaviour (cancel before start, complete after start).
     $requestedAction = in_array($action, ['complete', 'cancel'], true) ? $action : null;
 
     sqlsrv_begin_transaction($conn);
+
+    if ($requestedAction === 'cancel') {
+        if (!$canCancelWindow) {
+            // Outside of allowed cancellation window; treat as completion instead
+            $requestedAction = 'complete';
+        }
+    }
 
     if ($requestedAction === 'cancel') {
         // Explicit cancellation request from member
@@ -135,10 +156,30 @@ try {
 
         $newStatus = 'completed';
     } else {
-        // Legacy behaviour kept for backward compatibility:
-        // - If rental has already started → mark as Completed
-        // - If rental has not started yet → mark as Cancelled
-        if ($hasStarted) {
+        // Legacy behaviour kept for backward compatibility but updated
+        // to obey the 5-minute cancellation rule:
+        // - If ride has not started yet → Cancelled
+        // - If ride has started and still within 5 minutes → Cancelled
+        // - Otherwise → Completed
+        if (!$hasStarted || $canCancelWindow) {
+            $upd = sqlsrv_query(
+                $conn,
+                "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
+                [$rentalId]
+            );
+            if ($upd === false) {
+                throw new Exception('Failed to cancel rental');
+            }
+
+            if ($bikeId > 0) {
+                $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
+                if ($updBike === false) {
+                    throw new Exception('Failed to update bike availability');
+                }
+            }
+
+            $newStatus = 'cancelled';
+        } else {
             $upd = sqlsrv_query(
                 $conn,
                 "UPDATE Rentals SET status = 'Completed', return_date = ISNULL(return_date, CONVERT(date, GETDATE())) WHERE Rental_ID = ?",
@@ -171,24 +212,6 @@ try {
             }
 
             $newStatus = 'completed';
-        } else {
-            $upd = sqlsrv_query(
-                $conn,
-                "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
-                [$rentalId]
-            );
-            if ($upd === false) {
-                throw new Exception('Failed to cancel rental');
-            }
-
-            if ($bikeId > 0) {
-                $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
-                if ($updBike === false) {
-                    throw new Exception('Failed to update bike availability');
-                }
-            }
-
-            $newStatus = 'cancelled';
         }
     }
 

@@ -189,11 +189,12 @@ try {
     // Compute summary directly from DB for accuracy
     $sumActive = 0; $sumOverdue = 0; $sumCompletedToday = 0; $sumRevenueToday = 0.0;
 
-    // Active
-    $stmtA = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Rentals WHERE status = 'Active'");
+    // Active / ongoing bookings in DB are stored as 'Pending' (and possibly 'Active').
+    // Treat both as "active" for overview analytics.
+    $stmtA = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Rentals WHERE status IN ('Pending','Active')");
     if ($stmtA && ($rowA = sqlsrv_fetch_array($stmtA, SQLSRV_FETCH_ASSOC))) { $sumActive = (int)$rowA['Cnt']; }
-    // Overdue: planned return date before today while still Active
-    $stmtO = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Rentals WHERE status = 'Active' AND return_date < CONVERT(date, GETDATE())");
+    // Overdue: planned return date before today while still not completed/cancelled
+    $stmtO = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Rentals WHERE status IN ('Pending','Active') AND return_date < CONVERT(date, GETDATE())");
     if ($stmtO && ($rowO = sqlsrv_fetch_array($stmtO, SQLSRV_FETCH_ASSOC))) { $sumOverdue = (int)$rowO['Cnt']; }
     // Completed today
     $stmtC = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Returns WHERE return_date = CONVERT(date, GETDATE())");

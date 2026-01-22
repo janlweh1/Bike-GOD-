@@ -52,46 +52,42 @@ function loadRentalData() {
         });
 }
 
-// Calculate rental status
+// Calculate rental status based purely on server data
+// The backend already derives the correct status using
+// Rentals.status and Returns (including overdue logic),
+// so the frontend just normalizes casing.
 function calculateRentalStatus(rental) {
-    const now = new Date();
-    const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
-    
-    // If rental has been manually marked as completed or cancelled
-    if (rental.status === 'completed' || rental.status === 'cancelled') {
-        return rental.status;
-    }
-    
-    // Check if rental is scheduled for future
-    if (now < scheduledStart) {
-        return 'pending';
-    }
-    
-    // Calculate expected return time
-    const returnTime = new Date(scheduledStart);
-    returnTime.setHours(returnTime.getHours() + rental.duration);
-    
-    // Check if overdue
-    if (now > returnTime) {
-        return 'overdue';
-    }
-    
-    // Active rental
-    return 'active';
+    const raw = (rental.status || '').toString().toLowerCase();
+    if (!raw) return 'active';
+    return raw;
 }
 
 // Calculate return time
 function calculateReturnTime(rental) {
     try {
-        const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
-        const returnTime = new Date(scheduledStart);
-        returnTime.setHours(returnTime.getHours() + rental.duration);
-        
-        return returnTime.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-        });
+        // Prefer actual end time from server (based on Returns table)
+        if (rental.endTime) {
+            const actual = new Date(rental.endTime);
+            return actual.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        // Fallback: planned return based on pickup date/time + duration
+        if (rental.pickupDate && rental.pickupTime && rental.duration) {
+            const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
+            const returnTime = new Date(scheduledStart);
+            returnTime.setHours(returnTime.getHours() + rental.duration);
+            return returnTime.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        return 'N/A';
     } catch (error) {
         return 'N/A';
     }
