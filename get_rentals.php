@@ -121,6 +121,10 @@ try {
             $actualEndDt = new DateTime($actualReturnDate->format('Y-m-d') . ' ' . ($actualReturnTime instanceof DateTime ? $actualReturnTime->format('H:i:s') : '00:00:00'));
         }
 
+        // Choose a display return date: prefer actual return date if exists,
+        // otherwise fall back to the planned return date from Rentals.
+        $displayReturnDate = $actualReturnDate instanceof DateTime ? $actualReturnDate : ($plannedReturnDate instanceof DateTime ? $plannedReturnDate : null);
+
         // Compute duration hours using floor semantics (align with billing logic):
         // use actual end if available; else planned end for ongoing; else now
         $durationHours = 1;
@@ -166,6 +170,7 @@ try {
             'id' => (string)$rentalId,
             'pickupDate' => fmt_date($startDate) ?: null,
             'pickupTime' => fmt_time($startTime) ?: '00:00',
+            'returnDate' => fmt_date($displayReturnDate) ?: null,
             'duration' => $durationHours,
             'cost' => $cost,
             'status' => $status,

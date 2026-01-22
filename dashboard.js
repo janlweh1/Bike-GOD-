@@ -212,8 +212,15 @@ function displayRecentRentals() {
         return;
     }
     tbody.innerHTML = all.slice(0,5).map(rental => {
-        const startDate = formatDate(rental.startTime || new Date());
-        const returnDate = rental.endTime ? formatDate(rental.endTime) : startDate;
+        // Prefer the actual pickup date from backend/local data; fallback to startTime
+        const baseStart = rental.pickupDate || rental.startTime || new Date();
+        const startDate = formatDate(baseStart);
+
+        // Use the returnDate field coming directly from the rentals API
+        // (which is based on DB return_date / Returns table) when present;
+        // otherwise, fall back to actual endTime or the start date.
+        const baseEnd = rental.returnDate || rental.endTime || baseStart;
+        const returnDate = formatDate(baseEnd);
         const statusClass = rental.status === 'active' ? 'active' : rental.status === 'completed' ? 'completed' : 'overdue';
         const statusText = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
         return `
