@@ -129,8 +129,6 @@ function updateStatistics(summary) {
         document.getElementById('activeCount').textContent = summary.active ?? 0;
         document.getElementById('completedTodayCount').textContent = summary.completedToday ?? 0;
         document.getElementById('overdueCount').textContent = summary.overdue ?? 0;
-        const rev = typeof summary.todayRevenue === 'number' ? summary.todayRevenue : 0;
-        document.getElementById('todayRevenue').textContent = '₱' + rev.toFixed(2);
         return;
     }
     const today = new Date();
@@ -139,7 +137,6 @@ function updateStatistics(summary) {
     let activeCount = 0;
     let completedTodayCount = 0;
     let overdueCount = 0;
-    let todayRevenue = 0;
     
     allRentals.forEach(rental => {
         const status = calculateRentalStatus(rental);
@@ -157,7 +154,6 @@ function updateStatistics(summary) {
             
             if (endDate.getTime() === today.getTime()) {
                 completedTodayCount++;
-                todayRevenue += rental.cost || 0;
             }
         }
     });
@@ -166,7 +162,6 @@ function updateStatistics(summary) {
     document.getElementById('activeCount').textContent = activeCount;
     document.getElementById('completedTodayCount').textContent = completedTodayCount;
     document.getElementById('overdueCount').textContent = overdueCount;
-    document.getElementById('todayRevenue').textContent = '₱' + todayRevenue.toFixed(2);
 }
 
 // Display rentals in table

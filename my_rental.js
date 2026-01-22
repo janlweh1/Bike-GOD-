@@ -517,18 +517,44 @@ function confirmExtension() {
         if (rentalIndex === -1) return;
         
         const additionalHours = parseInt(document.getElementById('extendHours').value);
-        const additionalCost = additionalHours * activeRentals[rentalIndex].price;
-        
-        // Update duration and cost
-        activeRentals[rentalIndex].duration += additionalHours;
-        activeRentals[rentalIndex].cost += additionalCost;
-        
-        localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
-        
-        alert(`Rental extended by ${additionalHours} hour(s)! Additional cost: ₱${additionalCost.toFixed(2)}`);
-        closeExtendModal();
-        displayActiveRentals();
-        startAllTimers();
+        const rental = activeRentals[rentalIndex];
+
+        const form = new URLSearchParams();
+        form.set('rental_id', rental.id);
+        form.set('additional_hours', String(additionalHours));
+
+        fetch('extend_rental.php', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: form.toString()
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (!data || data.success === false) {
+                    throw new Error(data && data.message ? data.message : 'Failed to extend rental');
+                }
+
+                const newDuration = typeof data.newDurationHours === 'number' ? data.newDurationHours : (rental.duration + additionalHours);
+                const hourlyRate = rental.price || 0;
+                const newCost = hourlyRate * newDuration;
+
+                rental.duration = newDuration;
+                rental.cost = newCost;
+
+                activeRentals[rentalIndex] = rental;
+                localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
+
+                closeExtendModal();
+                displayActiveRentals();
+                startAllTimers();
+
+                showToast(`Rental extended by ${additionalHours} hour(s). New total: ${newDuration} hour(s).`);
+            })
+            .catch(error => {
+                console.error('Error confirming extension:', error);
+                alert('Error extending rental. Please try again.');
+            });
     } catch (error) {
         console.error('Error confirming extension:', error);
         alert('Error extending rental. Please try again.');
