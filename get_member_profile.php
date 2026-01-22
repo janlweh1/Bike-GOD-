@@ -34,6 +34,7 @@ if (!$row) {
     exit();
 }
 
+$username = $row['username'] ?? '';
 $first = $row['first_name'] ?? '';
 $last  = $row['last_name'] ?? '';
 $fullName = trim($first . ' ' . $last);
@@ -51,6 +52,7 @@ $defaultAvatar = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w
 
 echo json_encode([
     'success'  => true,
+    'username' => $username,
     'fullName' => $fullName,
     'email'    => $email,
     'phone'    => $phone,
