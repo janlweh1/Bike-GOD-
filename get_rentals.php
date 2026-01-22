@@ -136,15 +136,21 @@ try {
         $cost = round($rate * $durationHours, 2);
 
         // Derive status
-        $status = 'active';
-        if ($statusDb === 'completed' || $actualEndDt) {
-            $status = 'completed';
-        } elseif ($startDt && $plannedEndDt && $now > $plannedEndDt) {
-            $status = 'overdue';
-        } elseif ($startDt && $now < $startDt) {
-            $status = 'pending';
-        } elseif ($statusDb) {
-            $status = $statusDb; // active/cancelled/etc.
+        // Honor explicit DB statuses like "cancelled" first so they are not
+        // overridden by date-based logic (overdue/active/pending).
+        if ($statusDb === 'cancelled') {
+            $status = 'cancelled';
+        } else {
+            $status = 'active';
+            if ($statusDb === 'completed' || $actualEndDt) {
+                $status = 'completed';
+            } elseif ($startDt && $plannedEndDt && $now > $plannedEndDt) {
+                $status = 'overdue';
+            } elseif ($startDt && $now < $startDt) {
+                $status = 'pending';
+            } elseif ($statusDb) {
+                $status = $statusDb; // active/other custom
+            }
         }
 
         // Map bike category to simplified token

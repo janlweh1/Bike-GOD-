@@ -307,40 +307,70 @@ function endRental(rentalId) {
         
         const rental = activeRentals[rentalIndex];
         const rentalStarted = hasRentalStarted(rental);
-        
+
         const message = rentalStarted 
             ? `Are you sure you want to end the rental for ${rental.name}?`
             : `Are you sure you want to cancel the rental for ${rental.name}?`;
-        
+
         if (!confirm(message)) {
             return;
         }
-        
-        const endTime = new Date();
-        
-        // Add to history
-        const completedRental = {
-            ...rental,
-            endTime: endTime.toISOString(),
-            actualDuration: rental.duration,
-            status: rentalStarted ? 'completed' : 'cancelled'
-        };
-        
-        rentalHistory.unshift(completedRental);
-        localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
-        
-        // Remove from active rentals
-        activeRentals.splice(rentalIndex, 1);
-        localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
-        
-        // Clear timer
-        if (timerIntervals[rentalId]) {
-            clearInterval(timerIntervals[rentalId]);
-            delete timerIntervals[rentalId];
-        }
-        
-        // Reload page
-        location.reload();
+
+        // Call backend so admin panel stays in sync
+        const form = new URLSearchParams();
+        form.set('rental_id', rental.id);
+
+        fetch('member_complete_rental.php', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: form.toString()
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (!data || data.success === false) {
+                    throw new Error(data && data.message ? data.message : 'Failed to end rental');
+                }
+
+                const endTime = new Date();
+                const finalStatus = data.status || (rentalStarted ? 'completed' : 'cancelled');
+
+                // Add to history
+                const completedRental = {
+                    ...rental,
+                    endTime: endTime.toISOString(),
+                    actualDuration: rental.duration,
+                    status: finalStatus
+                };
+
+                rentalHistory.unshift(completedRental);
+                localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
+
+                // Remove from active rentals
+                activeRentals.splice(rentalIndex, 1);
+                localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
+
+                // Clear timer
+                if (timerIntervals[rentalId]) {
+                    clearInterval(timerIntervals[rentalId]);
+                    delete timerIntervals[rentalId];
+                }
+
+                // Immediately refresh local UI (no manual page reload needed)
+                displayActiveRentals();
+                updateActiveRentalCount();
+                displayHistory();
+                updateStatistics();
+
+                // Small toast to confirm action
+                showToast(finalStatus === 'completed'
+                    ? `Your rental for ${rental.name} has been ended.`
+                    : `Your rental for ${rental.name} has been cancelled.`);
+            })
+            .catch(error => {
+                console.error('Error ending rental:', error);
+                alert('Error ending rental. Please try again.');
+            });
     } catch (error) {
         console.error('Error ending rental:', error);
         alert('Error ending rental. Please try again.');
