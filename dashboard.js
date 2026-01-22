@@ -1,5 +1,6 @@
 // Dashboard Data Management
 let allBikes = [];
+let allRentals = [];
 let activeRentals = [];
 let rentalHistory = [];
 let rentalsSummary = null;
@@ -62,6 +63,7 @@ function loadRentalData() {
             if (!data || data.success === false) throw new Error('fallback');
             const rentals = Array.isArray(data.rentals) ? data.rentals : [];
             rentalsSummary = data.summary || null;
+            allRentals = rentals;
             activeRentals = rentals.filter(r => r.status === 'active');
             rentalHistory = rentals.filter(r => r.status === 'completed');
         })
@@ -71,10 +73,12 @@ function loadRentalData() {
                 const storedHistory = localStorage.getItem('rentalHistory');
                 activeRentals = storedActiveRentals ? JSON.parse(storedActiveRentals) : [];
                 rentalHistory = storedHistory ? JSON.parse(storedHistory) : [];
+                allRentals = [...activeRentals, ...rentalHistory];
                 rentalsSummary = null;
             } catch (error) {
                 activeRentals = [];
                 rentalHistory = [];
+                allRentals = [];
                 rentalsSummary = null;
             }
         });
@@ -216,10 +220,16 @@ function updateRevenueToday() {
 // Display recent rentals in table
 function displayRecentRentals() {
     const tbody = document.getElementById('recentRentalsTable');
-    // From server data if available
-    let all = [];
-    activeRentals.forEach((r, i) => all.push({ ...r, rentalId: r.id || `A${i}` }));
-    rentalHistory.forEach((r, i) => all.push({ ...r, rentalId: r.id || `C${i}` }));
+    // Use all rentals from the server so any rental status
+    // (Active, Completed, Overdue, Cancelled, etc.) can appear here.
+    let all = Array.isArray(allRentals) && allRentals.length
+        ? allRentals.map((r, i) => ({ ...r, rentalId: r.id || `R${i}` }))
+        : [];
+    // Fallback to legacy local arrays if needed
+    if (!all.length) {
+        activeRentals.forEach((r, i) => all.push({ ...r, rentalId: r.id || `A${i}` }));
+        rentalHistory.forEach((r, i) => all.push({ ...r, rentalId: r.id || `C${i}` }));
+    }
     all.sort((a,b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
     if (all.length === 0) {
         tbody.innerHTML = `
@@ -241,8 +251,16 @@ function displayRecentRentals() {
         // otherwise, fall back to actual endTime or the start date.
         const baseEnd = rental.returnDate || rental.endTime || baseStart;
         const returnDate = formatDate(baseEnd);
-        const statusClass = rental.status === 'active' ? 'active' : rental.status === 'completed' ? 'completed' : 'overdue';
-        const statusText = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+
+        // Show whatever rental status the backend provides, with
+        // badge styling when possible (active/completed/overdue/cancelled).
+        const rawStatus = (rental.status || '').toLowerCase();
+        const statusClass = ['active', 'completed', 'overdue', 'cancelled'].includes(rawStatus)
+            ? rawStatus
+            : 'active';
+        const statusText = rawStatus
+            ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
+            : 'Active';
         return `
             <tr>
                 <td>#${rental.rentalId}</td>
