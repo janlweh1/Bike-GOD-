@@ -64,10 +64,21 @@ try {
     sqlsrv_begin_transaction($conn);
 
     // Insert rental and return new ID using OUTPUT clause
-    // Insert rental; include planned return_time if column exists
+    // Insert rental; include planned return_time if column exists.
+    // If the column is missing, attempt to add it on the fly so
+    // durations can be computed accurately in admin views.
     $hasReturnTimeCol = false;
     $colStmt = sqlsrv_query($conn, "SELECT 1 AS X FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Rentals' AND COLUMN_NAME = 'return_time'");
-    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) { $hasReturnTimeCol = true; }
+    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
+        $hasReturnTimeCol = true;
+    } else {
+        // Try to run the migration inline if the column is missing
+        $alterSql = "IF COL_LENGTH('Rentals', 'return_time') IS NULL ALTER TABLE Rentals ADD return_time TIME NULL;";
+        $alterStmt = sqlsrv_query($conn, $alterSql);
+        if ($alterStmt) {
+            $hasReturnTimeCol = true;
+        }
+    }
 
     if ($hasReturnTimeCol) {
         $ins = sqlsrv_query(

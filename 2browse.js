@@ -144,7 +144,7 @@
     document.getElementById('modalBikeImage').src = bike.image;
     document.getElementById('modalBikeImage').alt = bike.name;
     document.getElementById('hourlyRate').textContent = toPeso(currentPrice) + '/hour';
-    document.getElementById('duration').value = 3;
+    document.getElementById('duration').value = 1;
     updateCalculations();
     document.getElementById('rentalModal').classList.add('active');
     document.body.style.overflow = 'hidden';
