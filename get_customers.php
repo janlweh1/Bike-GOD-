@@ -24,8 +24,35 @@ $join = isset($_GET['join']) ? trim($_GET['join']) : ''; // '' | 'week' | 'month
 $sort = isset($_GET['sort']) ? trim($_GET['sort']) : 'name'; // 'name' | 'recent' | 'rentals' | 'spending'
 
 try {
-    // Get members with stats
-    $stmt = sqlsrv_query($conn, 'EXEC sp_GetMembersWithStats');
+    // Get members with stats (total rentals, active rentals, total spent)
+    // Compute analytics via Rentals and Payments instead of storing in Member.
+    $sql = "
+        SELECT
+            m.Member_ID,
+            m.first_name,
+            m.last_name,
+            m.email,
+            m.contact_number,
+            m.username,
+            m.date_joined,
+            COUNT(DISTINCT r.Rental_ID) AS TotalRentals,
+            SUM(CASE WHEN r.status = 'Active' THEN 1 ELSE 0 END) AS ActiveRentals,
+            ISNULL(SUM(CASE WHEN p.status = 'completed' THEN CAST(p.amount AS FLOAT) ELSE 0 END), 0) AS TotalSpent
+        FROM Member m
+        LEFT JOIN Rentals r ON r.member_id = m.Member_ID
+        LEFT JOIN Payments p ON p.rental_id = r.Rental_ID
+        GROUP BY
+            m.Member_ID,
+            m.first_name,
+            m.last_name,
+            m.email,
+            m.contact_number,
+            m.username,
+            m.date_joined
+        ORDER BY m.Member_ID
+    ";
+
+    $stmt = sqlsrv_query($conn, $sql);
     if ($stmt === false) {
         throw new Exception('Query failed');
     }
@@ -40,7 +67,8 @@ try {
             'username' => $row['username'] ?? '',
             'joined' => isset($row['date_joined']) && $row['date_joined'] ? $row['date_joined']->format('Y-m-d') : null,
             'totalRentals' => (int)($row['TotalRentals'] ?? 0),
-            'activeRentals' => (int)($row['ActiveRentals'] ?? 0)
+            'activeRentals' => (int)($row['ActiveRentals'] ?? 0),
+            'totalSpent' => isset($row['TotalSpent']) ? (float)$row['TotalSpent'] : 0.0
         ];
     }
 
@@ -93,6 +121,11 @@ try {
     if ($sort === 'recent') {
         usort($members, function($a,$b){
             return strcmp($b['joined'] ?? '', $a['joined'] ?? '');
+        });
+    } elseif ($sort === 'spending') {
+        // Sort by highest total spent
+        usort($members, function($a,$b){
+            return (float)($b['totalSpent'] ?? 0) <=> (float)($a['totalSpent'] ?? 0);
         });
     } elseif ($sort === 'rentals') {
         usort($members, function($a,$b){

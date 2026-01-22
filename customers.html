@@ -319,6 +319,7 @@
                 const tbody = document.getElementById('customerTableBody');
                 tbody.innerHTML = '';
                 data.members.forEach(m => {
+                    const spent = typeof m.totalSpent === 'number' ? m.totalSpent : 0;
                     const tr = document.createElement('tr');
                     tr.dataset.memberId = m.id;
                     tr.innerHTML = `
@@ -336,7 +337,7 @@
                         <td>${escapeHtml(m.email || '')}</td>
                         <td>${escapeHtml(m.phone || '')}</td>
                         <td>${m.totalRentals}</td>
-                        <td>₱0</td>
+                        <td>₱${spent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
                         <td><span class="status-badge ${m.activeRentals > 0 ? 'active' : 'inactive'}">${m.activeRentals > 0 ? 'Active Rental' : 'No Rental'}</span></td>
                         <td>
                             <div class="action-buttons">
