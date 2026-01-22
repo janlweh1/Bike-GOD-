@@ -80,7 +80,8 @@ if ($userType === 'admin') {
             'address' => $member['address'],
             'type' => 'member',
             'avatar' => $avatar,
-            'badge' => 'Gold Member',
+            // Members don't use subscription tiers like "Gold Member"
+            'badge' => '',
             'join_date' => 'Member since ' . date('F Y', strtotime($member['date_joined']->format('Y-m-d')))
         ];
     }
@@ -152,8 +153,12 @@ sqlsrv_close($conn);
                 <h1 class="profile-name"><?php echo htmlspecialchars($userData['name']); ?></h1>
                 <p class="profile-email"><?php echo htmlspecialchars($userData['email']); ?></p>
                 <div class="profile-badges">
-                    <span class="badge badge-primary"><?php echo htmlspecialchars($userData['badge']); ?></span>
-                    <span class="badge badge-secondary"><?php echo htmlspecialchars($userData['join_date']); ?></span>
+                    <?php if (!empty($userData['badge'])): ?>
+                        <span class="badge badge-primary"><?php echo htmlspecialchars($userData['badge']); ?></span>
+                    <?php endif; ?>
+                    <?php if (!empty($userData['join_date'])): ?>
+                        <span class="badge badge-secondary"><?php echo htmlspecialchars($userData['join_date']); ?></span>
+                    <?php endif; ?>
                     <?php if ($userData['type'] === 'admin'): ?>
                         <span class="badge badge-admin">Administrator</span>
                     <?php endif; ?>
@@ -442,6 +447,76 @@ sqlsrv_close($conn);
                         localStorage.clear();
                         alert('Logged out locally. Redirecting to login...');
                         window.location.href = 'login.html';
+                    }
+                });
+            }
+
+            // Personal info form (members): save to database
+            const personalForm = document.getElementById('personalForm');
+            if (personalForm) {
+                personalForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+
+                    const nameInput = document.getElementById('editName');
+                    const emailInput = document.getElementById('editEmail');
+                    const phoneInput = document.getElementById('editPhone');
+                    const addressInput = document.getElementById('editAddress');
+
+                    const fullName = nameInput ? nameInput.value.trim() : '';
+                    const email = emailInput ? emailInput.value.trim() : '';
+                    const phone = phoneInput ? phoneInput.value.trim() : '';
+                    const address = addressInput ? addressInput.value.trim() : '';
+
+                    if (!fullName || !email) {
+                        alert('Name and email are required.');
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch('update_member_profile.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                full_name: fullName,
+                                email: email,
+                                phone: phone,
+                                address: address
+                            })
+                        });
+
+                        const data = await res.json();
+                        if (!data || !data.success) {
+                            alert((data && data.message) ? data.message : 'Failed to update profile');
+                            return;
+                        }
+
+                        // Update visible fields in the profile UI
+                        const headerName = document.querySelector('.profile-name');
+                        const headerEmail = document.querySelector('.profile-email');
+                        if (headerName) headerName.textContent = fullName;
+                        if (headerEmail) headerEmail.textContent = email;
+
+                        // Update the read-only info rows
+                        document.querySelectorAll('.info-row .label').forEach((labelEl) => {
+                            const labelText = labelEl.textContent.trim().toLowerCase();
+                            const valueEl = labelEl.nextElementSibling;
+                            if (!valueEl) return;
+                            if (labelText.startsWith('full name')) {
+                                valueEl.textContent = fullName;
+                            } else if (labelText.startsWith('email')) {
+                                valueEl.textContent = email;
+                            } else if (labelText.startsWith('phone')) {
+                                valueEl.textContent = phone || 'Not provided';
+                            } else if (labelText.startsWith('address')) {
+                                valueEl.textContent = address || 'Not provided';
+                            }
+                        });
+
+                        alert('Profile updated successfully.');
+                        closePersonalModal();
+                    } catch (err) {
+                        console.error('update_member_profile error:', err);
+                        alert('Failed to update profile. Please try again.');
                     }
                 });
             }
