@@ -21,11 +21,10 @@
             <ul class="nav-links">
                 <li><a href="user_home.html">Home</a></li>
                 <li><a href="2browse.html" class="active">Browse Bikes</a></li>
-                <li><a href="ahowitworks.html">How It Works</a></li>
-                <li><a href="apricing.html">Pricing</a></li>
                 <li><a href="contact.html">Contact</a></li>
                 <li><a href="my_rental.html">My Rental</a></li>
                 <li><a href="ahome.html">Profile</a></li>
+                <li><button id="logout-btn" class="logout-btn">Logout</button></li>
             </ul>
         </div>
     </nav>
@@ -155,6 +154,7 @@
 
     <!-- Live browse logic: fetch bikes from backend to match admin data -->
     <script src="2browse.js"></script>
+    <script src="logout.js"></script>
     <script>
         // Search functionality
         const searchInput = document.getElementById('searchInput');
