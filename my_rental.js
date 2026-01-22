@@ -4,6 +4,9 @@ let rentalHistory = [];
 let timerIntervals = {};
 let currentExtendRentalId = null;
 let currentExtendPrice = 50;
+// State for end/cancel choice modal
+let pendingEndRentalIndex = null;
+let pendingEndAction = null; // 'complete' or 'cancel'
 
 // Load rental data on page load
 async function loadRentalData() {
@@ -310,61 +313,77 @@ function endRental(rentalId) {
 
         // Determine whether this is an early end (before planned duration is used)
         let isEarly = false;
+        let remainingSeconds = 0;
         if (rentalStarted) {
             try {
                 const now = new Date();
                 const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
                 const elapsed = Math.max(0, Math.floor((now - scheduledStart) / 1000));
                 const totalSeconds = (rental.duration || 0) * 3600;
-                const remainingSeconds = Math.max(0, totalSeconds - elapsed);
+                remainingSeconds = Math.max(0, totalSeconds - elapsed);
                 isEarly = remainingSeconds > 0;
             } catch (e) {
                 console.warn('Failed to compute early-end status:', e);
             }
         }
 
-        // Decide desired action: 'complete' or 'cancel'
-        let action = null;
+        pendingEndRentalIndex = rentalIndex;
+        pendingEndAction = null;
 
-        if (!rentalStarted) {
-            // Future booking that hasn't started yet → cancel booking
-            const message = `Are you sure you want to cancel the rental for ${rental.name}?`;
-            if (!confirm(message)) {
-                return;
-            }
-            action = 'cancel';
-        } else if (isEarly) {
-            // Rental already started but still has remaining time
-            const endNow = confirm(
-                `You still have remaining time on your rental for ${rental.name}.\n\n` +
-                `Click OK to end your ride now (mark as completed), or Cancel if you instead want to cancel this rental.`
-            );
+        const modal = document.getElementById('endChoiceModal');
+        const titleEl = document.getElementById('endChoiceTitle');
+        const subtitleEl = document.getElementById('endChoiceSubtitle');
+        const bikeNameEl = document.getElementById('endChoiceBikeName');
+        const timeRowEl = document.getElementById('endChoiceTimeRow');
+        const timeRemainingEl = document.getElementById('endChoiceTimeRemaining');
 
-            if (endNow) {
-                action = 'complete';
-            } else {
-                const confirmCancel = confirm(
-                    `Do you want to cancel this rental for ${rental.name}?\n\nThis will mark the rental as cancelled.`
-                );
-                if (!confirmCancel) {
-                    return; // user backed out
-                }
-                action = 'cancel';
-            }
-        } else {
-            // Rental started and is at/after planned end → simple completion
-            const message = `Are you sure you want to end the rental for ${rental.name}?`;
-            if (!confirm(message)) {
-                return;
-            }
-            action = 'complete';
-        }
-
-        if (!action) {
+        if (!modal) {
+            console.error('endChoiceModal element not found');
             return;
         }
 
-        // Call backend so admin panel stays in sync
+        bikeNameEl.textContent = rental.name;
+
+        if (!rentalStarted) {
+            // Future booking that hasn't started yet → simple cancel modal
+            titleEl.textContent = 'Cancel Rental';
+            subtitleEl.textContent = 'This rental has not started yet. You can cancel it with no ride time used.';
+            if (timeRowEl) timeRowEl.style.display = 'none';
+            pendingEndAction = 'cancel';
+        } else if (isEarly) {
+            // Rental already started but still has remaining time → show remaining
+            titleEl.textContent = 'End Rental Early?';
+            subtitleEl.textContent = 'You still have remaining time on this rental. You can end your ride now or cancel the rental.';
+            if (timeRowEl) timeRowEl.style.display = '';
+
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
+            const seconds = remainingSeconds % 60;
+            timeRemainingEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+            // Rental started and is at/after planned end → normal completion
+            titleEl.textContent = 'End Rental';
+            subtitleEl.textContent = 'Your booked time is finished. Ending now will complete this rental.';
+            if (timeRowEl) timeRowEl.style.display = 'none';
+            pendingEndAction = 'complete';
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } catch (error) {
+        console.error('Error ending rental:', error);
+    }
+}
+
+// Actually submit the end/cancel decision to backend
+function submitEndRental(actionOverride) {
+    try {
+        if (pendingEndRentalIndex === null || pendingEndRentalIndex < 0) return;
+        const rental = activeRentals[pendingEndRentalIndex];
+        if (!rental) return;
+
+        const action = actionOverride || pendingEndAction || 'complete';
+
         const form = new URLSearchParams();
         form.set('rental_id', rental.id);
         form.set('action', action);
@@ -384,7 +403,6 @@ function endRental(rentalId) {
                 const endTime = new Date();
                 const finalStatus = data.status || (action === 'complete' ? 'completed' : 'cancelled');
 
-                // Add to history
                 const completedRental = {
                     ...rental,
                     endTime: endTime.toISOString(),
@@ -395,23 +413,21 @@ function endRental(rentalId) {
                 rentalHistory.unshift(completedRental);
                 localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));
 
-                // Remove from active rentals
-                activeRentals.splice(rentalIndex, 1);
+                activeRentals.splice(pendingEndRentalIndex, 1);
                 localStorage.setItem('activeRentals', JSON.stringify(activeRentals));
 
-                // Clear timer
-                if (timerIntervals[rentalId]) {
-                    clearInterval(timerIntervals[rentalId]);
-                    delete timerIntervals[rentalId];
+                if (timerIntervals[rental.id]) {
+                    clearInterval(timerIntervals[rental.id]);
+                    delete timerIntervals[rental.id];
                 }
 
-                // Immediately refresh local UI (no manual page reload needed)
                 displayActiveRentals();
                 updateActiveRentalCount();
                 displayHistory();
                 updateStatistics();
 
-                // Small toast to confirm action
+                closeEndChoiceModal();
+
                 showToast(finalStatus === 'completed'
                     ? `Your rental for ${rental.name} has been ended.`
                     : `Your rental for ${rental.name} has been cancelled.`);
@@ -422,7 +438,6 @@ function endRental(rentalId) {
             });
     } catch (error) {
         console.error('Error ending rental:', error);
-        alert('Error ending rental. Please try again.');
     }
 }
 
@@ -606,6 +621,43 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirmBtn) {
         confirmBtn.addEventListener('click', confirmExtension);
     }
+
+    // End / cancel rental modal controls
+    const endModal = document.getElementById('endChoiceModal');
+    const closeEndBtn = document.getElementById('closeEndChoiceModal');
+    const keepRidingBtn = document.getElementById('keepRidingBtn');
+    const cancelRentalBtn = document.getElementById('cancelRentalBtn');
+    const completeRentalBtn = document.getElementById('completeRentalBtn');
+
+    if (closeEndBtn) {
+        closeEndBtn.addEventListener('click', closeEndChoiceModal);
+    }
+
+    if (endModal) {
+        endModal.addEventListener('click', (e) => {
+            if (e.target === endModal) {
+                closeEndChoiceModal();
+            }
+        });
+    }
+
+    if (keepRidingBtn) {
+        keepRidingBtn.addEventListener('click', () => {
+            closeEndChoiceModal();
+        });
+    }
+
+    if (cancelRentalBtn) {
+        cancelRentalBtn.addEventListener('click', () => {
+            submitEndRental('cancel');
+        });
+    }
+
+    if (completeRentalBtn) {
+        completeRentalBtn.addEventListener('click', () => {
+            submitEndRental('complete');
+        });
+    }
     
     // Search functionality
     const searchInput = document.getElementById('searchInput');
@@ -658,4 +710,14 @@ function showToast(message) {
     } catch (e) {
         // ignore toast errors
     }
+}
+
+function closeEndChoiceModal() {
+    const modal = document.getElementById('endChoiceModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+    document.body.style.overflow = 'auto';
+    pendingEndRentalIndex = null;
+    pendingEndAction = null;
 }

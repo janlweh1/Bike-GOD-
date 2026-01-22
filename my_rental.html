@@ -182,7 +182,35 @@
         </div>
     </div>
 
-    <script src="my_rental.js?v=2"></script>
+    <!-- End / Cancel Rental Modal -->
+    <div class="modal-overlay" id="endChoiceModal">
+        <div class="modal-content-small">
+            <button class="modal-close" id="closeEndChoiceModal">&times;</button>
+            <h2 id="endChoiceTitle">End Rental</h2>
+            <p class="modal-subtitle" id="endChoiceSubtitle">
+                You still have remaining time on this rental. What would you like to do?
+            </p>
+
+            <div class="end-choice-details">
+                <div class="end-choice-row">
+                    <span class="label">Bike</span>
+                    <span class="value" id="endChoiceBikeName">Bike Name</span>
+                </div>
+                <div class="end-choice-row" id="endChoiceTimeRow">
+                    <span class="label">Time Remaining</span>
+                    <span class="value" id="endChoiceTimeRemaining">--:--:--</span>
+                </div>
+            </div>
+
+            <div class="end-choice-actions">
+                <button class="btn-secondary" id="keepRidingBtn">Keep Riding</button>
+                <button class="btn-ghost" id="cancelRentalBtn">Cancel Rental</button>
+                <button class="submit-btn" id="completeRentalBtn">End Ride Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="my_rental.js?v=3"></script>
     <script src="logout.js"></script>
 </body>
 </html>
