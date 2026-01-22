@@ -139,22 +139,20 @@ try {
         $rate = isset($row['hourly_rate']) ? (float)$row['hourly_rate'] : 0.0;
         $cost = round($rate * $durationHours, 2);
 
-        // Derive status
-        // Honor explicit DB statuses like "cancelled" first so they are not
-        // overridden by date-based logic (overdue/active/pending).
+        // Derive status for the UI.
+        // We want the system to show "Active" for all ongoing bookings
+        // even if the Rentals table stores them as "Pending".
         if ($statusDb === 'cancelled') {
             $status = 'cancelled';
+        } elseif ($statusDb === 'completed' || $actualEndDt) {
+            $status = 'completed';
+        } elseif ($startDt && $plannedEndDt && $now > $plannedEndDt) {
+            // Past planned end and not completed → overdue
+            $status = 'overdue';
         } else {
+            // Any non-completed, non-cancelled booking should appear as Active
+            // in the UI, regardless of whether DB says "Pending" or "Active".
             $status = 'active';
-            if ($statusDb === 'completed' || $actualEndDt) {
-                $status = 'completed';
-            } elseif ($startDt && $plannedEndDt && $now > $plannedEndDt) {
-                $status = 'overdue';
-            } elseif ($startDt && $now < $startDt) {
-                $status = 'pending';
-            } elseif ($statusDb) {
-                $status = $statusDb; // active/other custom
-            }
         }
 
         // Map bike category to simplified token

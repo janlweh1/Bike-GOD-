@@ -290,9 +290,13 @@
 
   function statusClass(s) {
     const v = (s || '').toLowerCase();
+    if (v === 'active') return 'active';
     if (v === 'completed') return 'completed';
     if (v === 'pending') return 'pending';
     if (v === 'failed') return 'failed';
+    if (v === 'refunded') return 'refunded';
+    if (v === 'cancelled') return 'cancelled';
+    if (v === 'overdue') return 'overdue';
     return '';
   }
 

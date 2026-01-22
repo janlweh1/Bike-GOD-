@@ -36,7 +36,8 @@ try {
             m.username,
             m.date_joined,
             COUNT(DISTINCT r.Rental_ID) AS TotalRentals,
-            SUM(CASE WHEN r.status = 'Active' THEN 1 ELSE 0 END) AS ActiveRentals,
+            -- Treat both 'Pending' and 'Active' as active/ongoing bookings
+            SUM(CASE WHEN r.status IN ('Active','Pending') THEN 1 ELSE 0 END) AS ActiveRentals,
             ISNULL(SUM(CASE WHEN p.status = 'completed' THEN CAST(p.amount AS FLOAT) ELSE 0 END), 0) AS TotalSpent
         FROM Member m
         LEFT JOIN Rentals r ON r.member_id = m.Member_ID

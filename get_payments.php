@@ -189,13 +189,28 @@ try {
     if ($stU) {
         while ($row = sqlsrv_fetch_array($stU, SQLSRV_FETCH_ASSOC)) {
             $name = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
+
+            // Map database rental status to UI-friendly status, keeping it
+            // consistent with the Rentals overview pages:
+            // - Cancelled stays "cancelled"
+            // - Completed stays "completed"
+            // - Any other in-progress state (e.g. "pending") is shown as "active"
+            $statusDb = strtolower((string)($row['rental_status'] ?? ''));
+            if ($statusDb === 'cancelled') {
+                $statusUi = 'cancelled';
+            } elseif ($statusDb === 'completed') {
+                $statusUi = 'completed';
+            } else {
+                $statusUi = 'active';
+            }
+
             $unpaidRentals[] = [
                 'rentalId' => (int)$row['Rental_ID'],
                 'customerName' => $name,
                 'bikeModel' => (string)($row['bike_name_model'] ?? ''),
                 'pickupDate' => ($row['rental_date'] instanceof DateTime) ? $row['rental_date']->format('Y-m-d') : null,
                 'pickupTime' => ($row['rental_time'] instanceof DateTime) ? $row['rental_time']->format('H:i') : null,
-                'status' => strtolower((string)($row['rental_status'] ?? ''))
+                'status' => $statusUi
             ];
         }
     }
