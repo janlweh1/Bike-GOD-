@@ -19,6 +19,8 @@ if ($conn === null) {
 
 $memberId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
 $rentalId = isset($_POST['rental_id']) ? (int)$_POST['rental_id'] : 0;
+// Optional explicit action from frontend: 'complete' or 'cancel'
+$action = isset($_POST['action']) ? strtolower(trim((string)$_POST['action'])) : '';
 
 if ($memberId <= 0 || $rentalId <= 0) {
     echo json_encode(['success' => false, 'message' => 'Invalid input']);
@@ -70,13 +72,37 @@ try {
 
     $hasStarted = $startDt && ($now >= $startDt);
 
+    // Normalise requested action; if not provided or invalid, we fall back
+    // to legacy behaviour (cancel before start, complete after start).
+    $requestedAction = in_array($action, ['complete', 'cancel'], true) ? $action : null;
+
     sqlsrv_begin_transaction($conn);
 
-    if ($hasStarted) {
-        // Treat as completed ride
+    if ($requestedAction === 'cancel') {
+        // Explicit cancellation request from member
         $upd = sqlsrv_query(
             $conn,
-            "UPDATE Rentals SET status = 'Completed' WHERE Rental_ID = ?",
+            "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
+            [$rentalId]
+        );
+        if ($upd === false) {
+            throw new Exception('Failed to cancel rental');
+        }
+
+        // Free the bike as well
+        if ($bikeId > 0) {
+            $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
+            if ($updBike === false) {
+                throw new Exception('Failed to update bike availability');
+            }
+        }
+
+        $newStatus = 'cancelled';
+    } elseif ($requestedAction === 'complete') {
+        // Explicit completion request from member
+        $upd = sqlsrv_query(
+            $conn,
+            "UPDATE Rentals SET status = 'Completed', return_date = ISNULL(return_date, CONVERT(date, GETDATE())) WHERE Rental_ID = ?",
             [$rentalId]
         );
         if ($upd === false) {
@@ -109,25 +135,61 @@ try {
 
         $newStatus = 'completed';
     } else {
-        // Rental has not started yet → treat as cancellation
-        $upd = sqlsrv_query(
-            $conn,
-            "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
-            [$rentalId]
-        );
-        if ($upd === false) {
-            throw new Exception('Failed to cancel rental');
-        }
-
-        // Free the bike as well
-        if ($bikeId > 0) {
-            $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
-            if ($updBike === false) {
-                throw new Exception('Failed to update bike availability');
+        // Legacy behaviour kept for backward compatibility:
+        // - If rental has already started → mark as Completed
+        // - If rental has not started yet → mark as Cancelled
+        if ($hasStarted) {
+            $upd = sqlsrv_query(
+                $conn,
+                "UPDATE Rentals SET status = 'Completed', return_date = ISNULL(return_date, CONVERT(date, GETDATE())) WHERE Rental_ID = ?",
+                [$rentalId]
+            );
+            if ($upd === false) {
+                throw new Exception('Failed to update rental status');
             }
-        }
 
-        $newStatus = 'cancelled';
+            $ins = sqlsrv_query(
+                $conn,
+                "INSERT INTO Returns (rental_id, admin_id, return_date, return_time, condition, remarks)
+                 VALUES (?, ?, CONVERT(date, GETDATE()), CONVERT(time, GETDATE()), ?, ?)",
+                [
+                    $rentalId,
+                    $adminId ?: null,
+                    'Good',
+                    'Returned by member via portal'
+                ]
+            );
+            if ($ins === false) {
+                throw new Exception('Failed to insert return record');
+            }
+
+            if ($bikeId > 0) {
+                $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
+                if ($updBike === false) {
+                    throw new Exception('Failed to update bike availability');
+                }
+            }
+
+            $newStatus = 'completed';
+        } else {
+            $upd = sqlsrv_query(
+                $conn,
+                "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
+                [$rentalId]
+            );
+            if ($upd === false) {
+                throw new Exception('Failed to cancel rental');
+            }
+
+            if ($bikeId > 0) {
+                $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
+                if ($updBike === false) {
+                    throw new Exception('Failed to update bike availability');
+                }
+            }
+
+            $newStatus = 'cancelled';
+        }
     }
 
     sqlsrv_commit($conn);

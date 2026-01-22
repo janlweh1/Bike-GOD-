@@ -308,17 +308,66 @@ function endRental(rentalId) {
         const rental = activeRentals[rentalIndex];
         const rentalStarted = hasRentalStarted(rental);
 
-        const message = rentalStarted 
-            ? `Are you sure you want to end the rental for ${rental.name}?`
-            : `Are you sure you want to cancel the rental for ${rental.name}?`;
+        // Determine whether this is an early end (before planned duration is used)
+        let isEarly = false;
+        if (rentalStarted) {
+            try {
+                const now = new Date();
+                const scheduledStart = new Date(rental.pickupDate + ' ' + rental.pickupTime);
+                const elapsed = Math.max(0, Math.floor((now - scheduledStart) / 1000));
+                const totalSeconds = (rental.duration || 0) * 3600;
+                const remainingSeconds = Math.max(0, totalSeconds - elapsed);
+                isEarly = remainingSeconds > 0;
+            } catch (e) {
+                console.warn('Failed to compute early-end status:', e);
+            }
+        }
 
-        if (!confirm(message)) {
+        // Decide desired action: 'complete' or 'cancel'
+        let action = null;
+
+        if (!rentalStarted) {
+            // Future booking that hasn't started yet → cancel booking
+            const message = `Are you sure you want to cancel the rental for ${rental.name}?`;
+            if (!confirm(message)) {
+                return;
+            }
+            action = 'cancel';
+        } else if (isEarly) {
+            // Rental already started but still has remaining time
+            const endNow = confirm(
+                `You still have remaining time on your rental for ${rental.name}.\n\n` +
+                `Click OK to end your ride now (mark as completed), or Cancel if you instead want to cancel this rental.`
+            );
+
+            if (endNow) {
+                action = 'complete';
+            } else {
+                const confirmCancel = confirm(
+                    `Do you want to cancel this rental for ${rental.name}?\n\nThis will mark the rental as cancelled.`
+                );
+                if (!confirmCancel) {
+                    return; // user backed out
+                }
+                action = 'cancel';
+            }
+        } else {
+            // Rental started and is at/after planned end → simple completion
+            const message = `Are you sure you want to end the rental for ${rental.name}?`;
+            if (!confirm(message)) {
+                return;
+            }
+            action = 'complete';
+        }
+
+        if (!action) {
             return;
         }
 
         // Call backend so admin panel stays in sync
         const form = new URLSearchParams();
         form.set('rental_id', rental.id);
+        form.set('action', action);
 
         fetch('member_complete_rental.php', {
             method: 'POST',
@@ -333,7 +382,7 @@ function endRental(rentalId) {
                 }
 
                 const endTime = new Date();
-                const finalStatus = data.status || (rentalStarted ? 'completed' : 'cancelled');
+                const finalStatus = data.status || (action === 'complete' ? 'completed' : 'cancelled');
 
                 // Add to history
                 const completedRental = {
