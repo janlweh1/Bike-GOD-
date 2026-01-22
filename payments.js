@@ -187,11 +187,15 @@
     const month = document.getElementById('monthRevenue');
     const pendingCount = document.getElementById('pendingCount');
     const pendingTotal = document.getElementById('pendingTotal');
+    const pendingCountVal = (typeof sum.unpaidCount === 'number' ? sum.unpaidCount : (sum.pendingCount || 0));
     if (today) today.textContent = formatCurrency(sum.todayRevenue || 0);
     if (week) week.textContent = formatCurrency(sum.weekRevenue || 0);
     if (month) month.textContent = formatCurrency(sum.monthRevenue || 0);
-    if (pendingCount) pendingCount.textContent = String(sum.pendingCount || 0);
-    if (pendingTotal) pendingTotal.textContent = `${formatCurrency(sum.pendingTotal || 0)} total`;
+    if (pendingCount) pendingCount.textContent = String(pendingCountVal);
+    if (pendingTotal) {
+      const label = pendingCountVal === 1 ? 'transaction not paid yet' : 'transactions not paid yet';
+      pendingTotal.textContent = `${pendingCountVal} ${label}`;
+    }
 
     function fmtPct(pct, suffix) {
       if (pct == null || isNaN(pct)) return '';

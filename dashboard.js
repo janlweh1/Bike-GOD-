@@ -3,10 +3,11 @@ let allBikes = [];
 let activeRentals = [];
 let rentalHistory = [];
 let rentalsSummary = null;
+let paymentsSummary = null;
 
 // Initialize dashboard
 function initDashboard() {
-    Promise.all([loadBikesData(), loadRentalData(), loadCustomersSummary()])
+    Promise.all([loadBikesData(), loadRentalData(), loadCustomersSummary(), loadPaymentsSummary()])
         .then(() => {
             updateStatistics();
             displayRecentRentals();
@@ -90,6 +91,17 @@ function loadCustomersSummary() {
         .catch(() => { window.__customersSummary = null; });
 }
 
+// Load payments summary for revenue analytics
+function loadPaymentsSummary() {
+    return fetch('get_payments.php', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.success === false) throw new Error('failed');
+            paymentsSummary = data.summary || null;
+        })
+        .catch(() => { paymentsSummary = null; });
+}
+
 // Update all statistics
 function updateStatistics() {
     updateTotalBikes();
@@ -164,6 +176,14 @@ function updateTotalCustomers() {
 
 // Update revenue today
 function updateRevenueToday() {
+    // Prefer payments-based revenue so it matches the Payments page
+    if (paymentsSummary && typeof paymentsSummary.todayRevenue === 'number') {
+        const revenue = paymentsSummary.todayRevenue;
+        document.getElementById('revenueToday').textContent = `₱${Math.round(revenue)}`;
+        document.getElementById('revenueChange').textContent = revenue > 0 ? '+100%' : '+0%';
+        return;
+    }
+    // Fallback: use rentals summary if available
     if (rentalsSummary && typeof rentalsSummary.todayRevenue === 'number') {
         const revenue = rentalsSummary.todayRevenue;
         document.getElementById('revenueToday').textContent = `₱${Math.round(revenue)}`;
@@ -283,7 +303,7 @@ function escapeHtml(str) {
 
 // Refresh dashboard data (call this periodically or on page visibility)
 function refreshDashboard() {
-    Promise.all([loadBikesData(), loadRentalData(), loadCustomersSummary()])
+    Promise.all([loadBikesData(), loadRentalData(), loadCustomersSummary(), loadPaymentsSummary()])
         .then(() => {
             updateStatistics();
             displayRecentRentals();
