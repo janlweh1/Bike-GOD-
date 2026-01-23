@@ -14,12 +14,6 @@ if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
     exit();
 }
 
-// For members, the unified profile page is ahome.html
-if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'member') {
-    header('Location: ahome.html');
-    exit();
-}
-
 // Database configuration
 $serverName = "localhost";
 $database = "BikeRental";

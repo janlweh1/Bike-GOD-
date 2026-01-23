@@ -480,7 +480,21 @@
         const photoInput = document.getElementById('photoUpload');
         const headerAvatar = document.querySelector('.profile-avatar');
         const previewAvatar = document.querySelector('.profile-photo-preview');
+        const avatarBadge = document.querySelector('.avatar-edit-badge');
         const defaultAvatarUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop';
+
+        // Allow clicking the small badge or avatar to trigger upload
+        if (avatarBadge && photoInput) {
+            avatarBadge.addEventListener('click', function () {
+                photoInput.click();
+            });
+        }
+        if (headerAvatar && photoInput) {
+            headerAvatar.style.cursor = 'pointer';
+            headerAvatar.addEventListener('click', function () {
+                photoInput.click();
+            });
+        }
 
         if (photoInput) {
             photoInput.addEventListener('change', async function (e) {

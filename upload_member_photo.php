@@ -56,9 +56,25 @@ $url = 'uploads/member_' . $memberId . '.' . $ext;
 require_once __DIR__ . '/db_config.php';
 $conn = getConnection();
 if ($conn) {
-    $sql = "EXEC sp_UpdateMemberPhotoUrl @MemberID=?, @PhotoUrl=?";
-    $params = [$memberId, $url];
-    @sqlsrv_query($conn, $sql, $params);
+    // Ensure photo_url column exists (for older DBs that missed the migration)
+    $colCheck = sqlsrv_query($conn, "SELECT COL_LENGTH('dbo.Member','photo_url') AS Len");
+    $hasCol = false;
+    if ($colCheck && ($row = sqlsrv_fetch_array($colCheck, SQLSRV_FETCH_ASSOC))) {
+        $hasCol = !empty($row['Len']);
+    }
+    if (!$hasCol) {
+        // Best-effort add of the column; ignore errors if it already exists
+        @sqlsrv_query($conn, "IF COL_LENGTH('dbo.Member','photo_url') IS NULL ALTER TABLE dbo.Member ADD photo_url NVARCHAR(255) NULL;");
+    }
+
+    // Prefer direct UPDATE so we don't depend on the stored procedure
+    $upd = sqlsrv_query($conn, "UPDATE dbo.Member SET photo_url = ? WHERE Member_ID = ?", [$url, $memberId]);
+    if ($upd === false) {
+        // Fallback: try stored procedure if available
+        $sql = "EXEC sp_UpdateMemberPhotoUrl @MemberID=?, @PhotoUrl=?";
+        $params = [$memberId, $url];
+        @sqlsrv_query($conn, $sql, $params);
+    }
     closeConnection($conn);
 }
 
