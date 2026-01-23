@@ -49,14 +49,18 @@ try {
         $hasReturnTimeCol = true;
     }
 
-    // Load the rental belonging to this member
+    // Load the rental belonging to this member, including bike/admin and rate
     $sql = $hasReturnTimeCol
-        ? "SELECT Rental_ID, rental_date, rental_time, return_date, return_time, status
-           FROM Rentals
-           WHERE Rental_ID = ? AND member_id = ?"
-        : "SELECT Rental_ID, rental_date, rental_time, return_date, status
-           FROM Rentals
-           WHERE Rental_ID = ? AND member_id = ?";
+        ? "SELECT r.Rental_ID, r.rental_date, r.rental_time, r.return_date, r.return_time, r.status,
+                  r.bike_id, b.admin_id, b.hourly_rate
+           FROM Rentals r
+           INNER JOIN Bike b ON b.Bike_ID = r.bike_id
+           WHERE r.Rental_ID = ? AND r.member_id = ?"
+        : "SELECT r.Rental_ID, r.rental_date, r.rental_time, r.return_date, r.status,
+                  r.bike_id, b.admin_id, b.hourly_rate
+           FROM Rentals r
+           INNER JOIN Bike b ON b.Bike_ID = r.bike_id
+           WHERE r.Rental_ID = ? AND r.member_id = ?";
 
     $stmt = sqlsrv_query($conn, $sql, [$rentalId, $memberId]);
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
@@ -76,6 +80,9 @@ try {
     $rentalTime = $row['rental_time'];
     $returnDate = $row['return_date'];
     $returnTime = $hasReturnTimeCol ? ($row['return_time'] ?? null) : null;
+    $bikeId    = isset($row['bike_id']) ? (int)$row['bike_id'] : 0;
+    $adminId   = isset($row['admin_id']) ? (int)$row['admin_id'] : 0;
+    $hourlyRate = isset($row['hourly_rate']) ? (float)$row['hourly_rate'] : 0.0;
 
     if (!($rentalDate instanceof DateTime) || !($rentalTime instanceof DateTime)) {
         echo json_encode(['success' => false, 'message' => 'Invalid rental start date/time']);
@@ -98,28 +105,90 @@ try {
     $newEnd = clone $currentEnd;
     $newEnd->modify('+' . $additionalHours . ' hours');
 
-    // Compute new total duration in whole hours from start
+    // Compute old and new total duration in whole hours from start
     $startDt = new DateTime($rentalDate->format('Y-m-d') . ' ' . $rentalTime->format('H:i:s'));
-    $diffSecs = max(0, $newEnd->getTimestamp() - $startDt->getTimestamp());
-    $newDurationHours = (int)floor($diffSecs / 3600);
+    $diffOldSecs = max(0, $currentEnd->getTimestamp() - $startDt->getTimestamp());
+    $oldDurationHours = (int)floor($diffOldSecs / 3600);
+    if ($oldDurationHours < 1) { $oldDurationHours = 1; }
+
+    $diffNewSecs = max(0, $newEnd->getTimestamp() - $startDt->getTimestamp());
+    $newDurationHours = (int)floor($diffNewSecs / 3600);
     if ($newDurationHours < 1) { $newDurationHours = 1; }
 
-    // Persist updated planned return date/time via stored procedure
-    $upd = sqlsrv_query(
-        $conn,
-        'EXEC dbo.sp_ExtendRental @RentalID = ?, @MemberID = ?, @NewReturnDate = ?, @NewReturnTime = ?',
-        [
-            $rentalId,
-            $memberId,
-            $newEnd->format('Y-m-d'),
-            $newEnd->format('H:i:s')
-        ]
-    );
+    $extraHours = $newDurationHours - $oldDurationHours;
+    if ($extraHours < 0) { $extraHours = 0; }
 
-    if ($upd === false) {
-        echo json_encode(['success' => false, 'message' => 'Failed to update rental']);
-        closeConnection($conn);
-        exit();
+    // If there is already a completed payment for this rental, do NOT
+    // modify the original rental. Instead, create a brand-new rental
+    // that represents the extension so it has its own Rental_ID and can
+    // carry a separate payment.
+    $hasCompletedPayment = false;
+    $payStmt = sqlsrv_query(
+        $conn,
+        "SELECT TOP 1 Payment_ID FROM Payments WHERE rental_id = ? AND status = 'completed'",
+        [$rentalId]
+    );
+    if ($payStmt && sqlsrv_fetch_array($payStmt, SQLSRV_FETCH_ASSOC)) {
+        $hasCompletedPayment = true;
+    }
+
+    $extensionRentalId = null;
+
+    if ($hasCompletedPayment && $extraHours > 0 && $bikeId > 0) {
+        // Create a new rental that starts at the previous planned end
+        // and ends at the new extended end.
+        $now = new DateTime('now');
+        $extStatus = ($currentEnd > $now) ? 'Pending' : 'Active';
+
+        $ins = sqlsrv_query(
+            $conn,
+            'EXEC dbo.sp_CreateRental @MemberID = ?, @BikeID = ?, @AdminID = ?, @RentalDate = ?, @RentalTime = ?, @PlannedReturnDate = ?, @PlannedReturnTime = ?, @Status = ?',
+            [
+                $memberId,
+                $bikeId,
+                $adminId,
+                $currentEnd->format('Y-m-d'),
+                $currentEnd->format('H:i:s'),
+                $newEnd->format('Y-m-d'),
+                $newEnd->format('H:i:s'),
+                $extStatus
+            ]
+        );
+
+        if ($ins === false) {
+            echo json_encode(['success' => false, 'message' => 'Failed to create extension rental']);
+            closeConnection($conn);
+            exit();
+        }
+
+        if ($rowExt = sqlsrv_fetch_array($ins, SQLSRV_FETCH_ASSOC)) {
+            $extensionRentalId = isset($rowExt['Rental_ID']) ? (int)$rowExt['Rental_ID'] : (int)array_values($rowExt)[0];
+        }
+
+        if (!$extensionRentalId) {
+            echo json_encode(['success' => false, 'message' => 'Failed to get extension rental id']);
+            closeConnection($conn);
+            exit();
+        }
+    } else {
+        // No completed payment yet: simply extend the original rental
+        // in-place so that a single payment will cover the full time.
+        $upd = sqlsrv_query(
+            $conn,
+            'EXEC dbo.sp_ExtendRental @RentalID = ?, @MemberID = ?, @NewReturnDate = ?, @NewReturnTime = ?',
+            [
+                $rentalId,
+                $memberId,
+                $newEnd->format('Y-m-d'),
+                $newEnd->format('H:i:s')
+            ]
+        );
+
+        if ($upd === false) {
+            echo json_encode(['success' => false, 'message' => 'Failed to update rental']);
+            closeConnection($conn);
+            exit();
+        }
     }
 
     echo json_encode([
@@ -127,7 +196,8 @@ try {
         'rental_id' => $rentalId,
         'newReturnDate' => $newEnd->format('Y-m-d'),
         'newReturnTime' => $newEnd->format('H:i:s'),
-        'newDurationHours' => $newDurationHours
+        'newDurationHours' => $newDurationHours,
+        'extension_rental_id' => $extensionRentalId
     ]);
 
 } catch (Exception $e) {

@@ -1311,6 +1311,86 @@ BEGIN
     );
 END;
 GO
+
+-- Stored Procedure: Create a pending payment entry specifically for rental extensions
+IF OBJECT_ID('dbo.sp_CreateExtensionPendingPayment', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CreateExtensionPendingPayment;
+GO
+CREATE PROCEDURE dbo.sp_CreateExtensionPendingPayment
+    @RentalId INT,
+    @MemberId INT,
+    @AdditionalHours INT,
+    @Amount DECIMAL(10,2),
+    @PaymentDateTime NVARCHAR(30) = NULL -- optional, defaults to now
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic guards
+    IF @AdditionalHours <= 0 OR @Amount <= 0
+        RETURN;
+
+    -- Ensure the rental exists and belongs to the member
+    IF NOT EXISTS (
+        SELECT 1 FROM dbo.Rentals WHERE Rental_ID = @RentalId AND member_id = @MemberId
+    )
+    BEGIN
+        RAISERROR('Rental not found for member', 16, 1);
+        RETURN;
+    END
+
+    -- Only create an extension payment if there is already at least one
+    -- completed payment for this rental (i.e., the original booking was paid)
+    IF NOT EXISTS (
+        SELECT 1 FROM dbo.Payments WHERE rental_id = @RentalId AND status = 'completed'
+    )
+    BEGIN
+        RAISERROR('No completed payment exists for this rental to extend from', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @Dt DATETIME = COALESCE(TRY_CONVERT(DATETIME, @PaymentDateTime), GETDATE());
+
+    -- Generate a unique transaction id for the extension payment
+    DECLARE @TxnId NVARCHAR(50);
+    SET @TxnId = CONCAT('EXT-', @RentalId, '-', REPLACE(CONVERT(VARCHAR(19), @Dt, 120), ':', ''));
+
+    WHILE EXISTS (SELECT 1 FROM dbo.Payments WHERE transaction_id = @TxnId)
+    BEGIN
+        SET @Dt = DATEADD(SECOND, 1, @Dt);
+        SET @TxnId = CONCAT('EXT-', @RentalId, '-', REPLACE(CONVERT(VARCHAR(19), @Dt, 120), ':', ''));
+    END
+
+    DECLARE @MemberFromRental INT;
+    SELECT @MemberFromRental = member_id
+    FROM dbo.Rentals
+    WHERE Rental_ID = @RentalId;
+
+    INSERT INTO dbo.Payments (
+        transaction_id,
+        rental_id,
+        member_id,
+        payment_method,
+        amount,
+        status,
+        payment_date,
+        notes,
+        CreatedAt
+    )
+    VALUES (
+        @TxnId,
+        @RentalId,
+        @MemberFromRental,
+        'cash',
+        @Amount,
+        'pending',
+        @Dt,
+        CONCAT('Extension of ', @AdditionalHours, ' hour(s)'),
+        GETDATE()
+    );
+END;
+GO
+
 -- Stored Procedure: List Rentals with summary for admin
 IF OBJECT_ID('dbo.sp_ListRentalsWithSummary', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ListRentalsWithSummary;
@@ -1904,23 +1984,37 @@ GO
 CREATE PROCEDURE dbo.sp_GetUnpaidRentals
 AS
 BEGIN
-    SET NOCOUNT ON;
+        SET NOCOUNT ON;
 
-    SELECT
-        r.Rental_ID,
-        r.rental_date,
-        r.rental_time,
-        r.status AS rental_status,
-        m.first_name,
-        m.last_name,
-        b.bike_name_model
-    FROM dbo.Rentals r
-    INNER JOIN dbo.Member m ON m.Member_ID = r.member_id
-    INNER JOIN dbo.Bike b   ON b.Bike_ID   = r.bike_id
-    LEFT JOIN dbo.Payments p ON p.rental_id = r.Rental_ID AND p.status = 'completed'
-    WHERE p.Payment_ID IS NULL
-      AND r.status <> 'Cancelled'
-    ORDER BY r.Rental_ID DESC;
+        SELECT
+                r.Rental_ID,
+                r.rental_date,
+                r.rental_time,
+                r.status AS rental_status,
+                m.first_name,
+                m.last_name,
+                b.bike_name_model
+        FROM dbo.Rentals r
+        INNER JOIN dbo.Member m ON m.Member_ID = r.member_id
+        INNER JOIN dbo.Bike b   ON b.Bike_ID   = r.bike_id
+        WHERE r.status <> 'Cancelled'
+            AND (
+                        -- Original behaviour: rentals with no completed payment at all
+                        NOT EXISTS (
+                                SELECT 1 FROM dbo.Payments pc
+                                WHERE pc.rental_id = r.Rental_ID
+                                    AND pc.status = 'completed'
+                        )
+                        OR
+                        -- New behaviour: rentals that have a pending payment (for example,
+                        -- an extension amount after the original booking was already paid)
+                        EXISTS (
+                                SELECT 1 FROM dbo.Payments pp
+                                WHERE pp.rental_id = r.Rental_ID
+                                    AND pp.status = 'pending'
+                        )
+                    )
+        ORDER BY r.Rental_ID DESC;
 END;
 GO
 CREATE PROCEDURE dbo.sp_UpdateBusinessInfo
