@@ -79,6 +79,7 @@ CREATE TABLE Rentals (
     rental_date DATE,
     rental_time TIME,
     return_date DATE,
+    return_time TIME NULL,
     status NVARCHAR(20)
 );
 GO
@@ -318,6 +319,103 @@ BEGIN
 END;
 GO
 
+-- Admin: Update basic member fields
+IF OBJECT_ID('dbo.sp_UpdateMemberBasic', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateMemberBasic;
+GO
+CREATE PROCEDURE dbo.sp_UpdateMemberBasic
+    @MemberID INT,
+    @FirstName NVARCHAR(100),
+    @LastName NVARCHAR(100),
+    @Email NVARCHAR(255),
+    @Phone NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Member
+    SET first_name = @FirstName,
+        last_name = @LastName,
+        email = @Email,
+        contact_number = @Phone
+    WHERE Member_ID = @MemberID;
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Self-service: Update full member profile
+IF OBJECT_ID('dbo.sp_UpdateMemberProfile', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateMemberProfile;
+GO
+CREATE PROCEDURE dbo.sp_UpdateMemberProfile
+    @MemberID INT,
+    @Username NVARCHAR(50) = NULL,
+    @FirstName NVARCHAR(100),
+    @LastName NVARCHAR(100),
+    @Email NVARCHAR(255) = NULL,
+    @Phone NVARCHAR(50) = NULL,
+    @Address NVARCHAR(255) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE dbo.Member
+    SET username = COALESCE(@Username, username),
+        first_name = @FirstName,
+        last_name = @LastName,
+        email = COALESCE(@Email, email),
+        contact_number = COALESCE(@Phone, contact_number),
+        address = COALESCE(@Address, address)
+    WHERE Member_ID = @MemberID;
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Self-service: Update member email only
+IF OBJECT_ID('dbo.sp_UpdateMemberEmail', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateMemberEmail;
+GO
+CREATE PROCEDURE dbo.sp_UpdateMemberEmail
+    @MemberID INT,
+    @Email NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Member SET email = @Email WHERE Member_ID = @MemberID;
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Self-service: Update member password hash
+IF OBJECT_ID('dbo.sp_UpdateMemberPassword', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateMemberPassword;
+GO
+CREATE PROCEDURE dbo.sp_UpdateMemberPassword
+    @MemberID INT,
+    @PasswordHash NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Member SET password = @PasswordHash WHERE Member_ID = @MemberID;
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Self-service: Update member photo URL
+IF OBJECT_ID(N'dbo.sp_UpdateMemberPhotoUrl', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateMemberPhotoUrl;
+GO
+CREATE PROCEDURE dbo.sp_UpdateMemberPhotoUrl
+    @MemberID INT,
+    @PhotoUrl NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Member SET photo_url = @PhotoUrl WHERE Member_ID = @MemberID;
+END;
+GO
+
 -- Utility: Count members
 CREATE PROCEDURE sp_CountMembers
 AS
@@ -353,6 +451,27 @@ BEGIN
         (SELECT COUNT(*) FROM Rentals r WHERE r.member_id = m.Member_ID AND r.status = 'Active') AS ActiveRentals
     FROM Member m
     ORDER BY m.Member_ID;
+END;
+GO
+
+-- Admin: Delete member only if no rentals exist
+IF OBJECT_ID('dbo.sp_DeleteMemberIfNoRentals', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_DeleteMemberIfNoRentals;
+GO
+CREATE PROCEDURE dbo.sp_DeleteMemberIfNoRentals
+    @MemberID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (SELECT 1 FROM dbo.Rentals WHERE member_id = @MemberID)
+    BEGIN
+        RAISERROR('Cannot delete member with existing rentals', 16, 1);
+        RETURN;
+    END
+
+    DELETE FROM dbo.Member WHERE Member_ID = @MemberID;
+    SELECT @@ROWCOUNT AS RowsAffected;
 END;
 GO
 
@@ -925,7 +1044,8 @@ CREATE PROCEDURE dbo.sp_UpdateBike
     @Model NVARCHAR(100) = NULL,
     @Type NVARCHAR(50) = NULL,
     @Status NVARCHAR(20) = NULL,
-    @Rate DECIMAL(10,2) = NULL
+    @Rate DECIMAL(10,2) = NULL,
+    @Condition NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -934,7 +1054,8 @@ BEGIN
     SET bike_name_model = COALESCE(@Model, bike_name_model),
         bike_type = COALESCE(@Type, bike_type),
         availability_status = COALESCE(@Status, availability_status),
-        hourly_rate = COALESCE(@Rate, hourly_rate)
+        hourly_rate = COALESCE(@Rate, hourly_rate),
+        bike_condition = COALESCE(@Condition, bike_condition)
     WHERE Bike_ID = @BikeID;
 
     SELECT @@ROWCOUNT AS RowsAffected;
@@ -978,6 +1099,26 @@ BEGIN
     DELETE FROM dbo.Bike WHERE Bike_ID = @BikeID;
 
     SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Update bike photo URL separately
+IF OBJECT_ID('dbo.sp_UpdateBikePhoto', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_UpdateBikePhoto;
+GO
+CREATE PROCEDURE dbo.sp_UpdateBikePhoto
+    @BikeID INT,
+    @PhotoUrl NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF COL_LENGTH('dbo.Bike','photo_url') IS NULL
+        RETURN;
+
+    UPDATE dbo.Bike
+    SET photo_url = @PhotoUrl
+    WHERE Bike_ID = @BikeID;
 END;
 GO
 
@@ -1147,6 +1288,330 @@ BEGIN
     );
 END;
 GO
+-- Stored Procedure: List Rentals with summary for admin
+IF OBJECT_ID('dbo.sp_ListRentalsWithSummary', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ListRentalsWithSummary;
+GO
+
+-- Admin: Create rental and mark bike as rented
+IF OBJECT_ID('dbo.sp_CreateRental', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CreateRental;
+GO
+CREATE PROCEDURE dbo.sp_CreateRental
+    @MemberID INT,
+    @BikeID INT,
+    @AdminID INT,
+    @RentalDate DATE,
+    @RentalTime TIME,
+    @PlannedReturnDate DATE,
+    @PlannedReturnTime TIME = NULL,
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @NewID INT;
+
+    IF COL_LENGTH('dbo.Rentals','return_time') IS NOT NULL
+    BEGIN
+        INSERT INTO dbo.Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, return_time, status)
+        VALUES (@MemberID, @BikeID, @AdminID, @RentalDate, @RentalTime, @PlannedReturnDate, @PlannedReturnTime, @Status);
+    END
+    ELSE
+    BEGIN
+        INSERT INTO dbo.Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, status)
+        VALUES (@MemberID, @BikeID, @AdminID, @RentalDate, @RentalTime, @PlannedReturnDate, @Status);
+    END
+
+    SET @NewID = CAST(SCOPE_IDENTITY() AS INT);
+
+    -- Mark bike as rented
+    UPDATE dbo.Bike SET availability_status = 'Rented' WHERE Bike_ID = @BikeID;
+
+    SELECT @NewID AS Rental_ID;
+END;
+GO
+
+-- Self-service: Extend rental planned return
+IF OBJECT_ID('dbo.sp_ExtendRental', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ExtendRental;
+GO
+CREATE PROCEDURE dbo.sp_ExtendRental
+    @RentalID INT,
+    @MemberID INT,
+    @NewReturnDate DATE,
+    @NewReturnTime TIME = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF COL_LENGTH('dbo.Rentals','return_time') IS NOT NULL
+    BEGIN
+        UPDATE dbo.Rentals
+        SET return_date = @NewReturnDate,
+            return_time = @NewReturnTime
+        WHERE Rental_ID = @RentalID AND member_id = @MemberID;
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.Rentals
+        SET return_date = @NewReturnDate
+        WHERE Rental_ID = @RentalID AND member_id = @MemberID;
+    END
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Member-side: End (complete/cancel) rental with 5-minute cancellation window
+IF OBJECT_ID('dbo.sp_MemberEndRental', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_MemberEndRental;
+GO
+CREATE PROCEDURE dbo.sp_MemberEndRental
+    @RentalID INT,
+    @MemberID INT,
+    @RequestedAction NVARCHAR(20) = NULL -- 'complete' or 'cancel'; NULL = legacy behaviour
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE
+        @DbMemberID INT,
+        @BikeID INT,
+        @AdminID INT,
+        @RentalDate DATE,
+        @RentalTime TIME,
+        @Status NVARCHAR(20),
+        @StatusLower NVARCHAR(20),
+        @Now DATETIME,
+        @StartDt DATETIME,
+        @HasStarted BIT = 0,
+        @CanCancelWindow BIT = 1,
+        @ElapsedSeconds INT,
+        @Action NVARCHAR(20);
+
+    SELECT
+        @DbMemberID = r.member_id,
+        @BikeID = r.bike_id,
+        @AdminID = r.admin_id,
+        @RentalDate = r.rental_date,
+        @RentalTime = r.rental_time,
+        @Status = r.status
+    FROM dbo.Rentals r
+    WHERE r.Rental_ID = @RentalID;
+
+    IF @DbMemberID IS NULL
+    BEGIN
+        RAISERROR('Rental not found', 16, 1);
+        RETURN;
+    END
+
+    IF @DbMemberID <> @MemberID
+    BEGIN
+        RAISERROR('You do not own this rental', 16, 1);
+        RETURN;
+    END
+
+    SET @StatusLower = LOWER(ISNULL(LTRIM(RTRIM(@Status)), ''));
+    IF @StatusLower IN ('completed', 'cancelled')
+    BEGIN
+        SELECT
+            CAST(1 AS BIT) AS Success,
+            @StatusLower AS NewStatus,
+            N'Rental already ended' AS Message;
+        RETURN;
+    END
+
+    SET @Now = GETDATE();
+
+    IF @RentalDate IS NOT NULL
+    BEGIN
+        SET @StartDt = TRY_CONVERT(DATETIME,
+            CONVERT(VARCHAR(10), @RentalDate, 120) + ' ' +
+            ISNULL(CONVERT(VARCHAR(8), @RentalTime, 108), '00:00:00'));
+    END
+
+    IF @StartDt IS NOT NULL AND @Now >= @StartDt
+        SET @HasStarted = 1;
+
+    -- Cancellation window:
+    -- - Before start: allowed
+    -- - After start: allowed only within first 5 minutes
+    IF @StartDt IS NOT NULL
+    BEGIN
+        IF @Now < @StartDt
+            SET @CanCancelWindow = 1;
+        ELSE
+        BEGIN
+            SET @ElapsedSeconds = DATEDIFF(SECOND, @StartDt, @Now);
+            SET @CanCancelWindow = CASE WHEN @ElapsedSeconds <= 300 THEN 1 ELSE 0 END;
+        END
+    END
+
+    -- Normalise requested action
+    IF @RequestedAction IS NOT NULL
+    BEGIN
+        SET @Action = LOWER(LTRIM(RTRIM(@RequestedAction)));
+        IF @Action NOT IN ('complete', 'cancel') SET @Action = NULL;
+    END
+    ELSE
+        SET @Action = NULL;
+
+    BEGIN TRY
+        BEGIN TRAN;
+
+        -- If explicit cancel outside window, treat as complete
+        IF @Action = 'cancel' AND @CanCancelWindow = 0
+            SET @Action = 'complete';
+
+        IF @Action = 'cancel'
+            OR (@Action IS NULL AND (@HasStarted = 0 OR @CanCancelWindow = 1))
+        BEGIN
+            UPDATE dbo.Rentals
+            SET status = 'Cancelled'
+            WHERE Rental_ID = @RentalID;
+
+            IF @BikeID IS NOT NULL AND @BikeID > 0
+            BEGIN
+                UPDATE dbo.Bike
+                SET availability_status = 'Available'
+                WHERE Bike_ID = @BikeID;
+            END
+
+            COMMIT TRAN;
+            SELECT CAST(1 AS BIT) AS Success,
+                   N'cancelled' AS NewStatus,
+                   N'Rental cancelled' AS Message;
+            RETURN;
+        END
+
+        -- Otherwise complete
+        UPDATE dbo.Rentals
+        SET status = 'Completed',
+            return_date = ISNULL(return_date, CONVERT(DATE, @Now))
+        WHERE Rental_ID = @RentalID;
+
+        IF NOT EXISTS (SELECT 1 FROM dbo.Returns WHERE rental_id = @RentalID)
+        BEGIN
+            INSERT INTO dbo.Returns (rental_id, admin_id, return_date, return_time, condition, remarks)
+            VALUES (@RentalID, @AdminID, CONVERT(DATE, @Now), CONVERT(TIME, @Now), 'Good', 'Returned by member via portal');
+        END
+
+        IF @BikeID IS NOT NULL AND @BikeID > 0
+        BEGIN
+            UPDATE dbo.Bike
+            SET availability_status = 'Available'
+            WHERE Bike_ID = @BikeID;
+        END
+
+        COMMIT TRAN;
+        SELECT CAST(1 AS BIT) AS Success,
+               N'completed' AS NewStatus,
+               N'Rental completed' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
+END;
+GO
+
+-- Admin: Complete rental, create return if missing, free bike
+IF OBJECT_ID('dbo.sp_CompleteRentalAdmin', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CompleteRentalAdmin;
+GO
+CREATE PROCEDURE dbo.sp_CompleteRentalAdmin
+    @RentalID INT,
+    @AdminID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- If already completed, just exit with success flag
+    IF EXISTS (SELECT 1 FROM dbo.Rentals WHERE Rental_ID = @RentalID AND LOWER(status) = 'completed')
+    BEGIN
+        SELECT 0 AS AlreadyCompleted, 0 AS RowsAffected;
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRAN;
+
+        -- Mark rental completed and ensure return_date
+        UPDATE dbo.Rentals
+        SET status = 'Completed',
+            return_date = ISNULL(return_date, CONVERT(date, GETDATE()))
+        WHERE Rental_ID = @RentalID;
+
+        -- Insert Returns row if none exists
+        IF NOT EXISTS (SELECT 1 FROM dbo.Returns WHERE rental_id = @RentalID)
+        BEGIN
+            INSERT INTO dbo.Returns (rental_id, admin_id, return_date, return_time, condition, remarks)
+            VALUES (@RentalID, @AdminID, CONVERT(date, GETDATE()), CONVERT(time, GETDATE()), 'Good', '');
+        END
+
+        -- Free the bike
+        UPDATE dbo.Bike
+        SET availability_status = 'Available'
+        WHERE Bike_ID = (SELECT bike_id FROM dbo.Rentals WHERE Rental_ID = @RentalID);
+
+        COMMIT TRAN;
+        SELECT 0 AS AlreadyCompleted, 1 AS RowsAffected;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
+END;
+GO
+CREATE PROCEDURE dbo.sp_ListRentalsWithSummary
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Main rentals listing with latest return info
+    SELECT r.Rental_ID,
+           r.rental_date,
+           r.rental_time,
+           r.return_date AS planned_return_date,
+           r.return_time AS planned_return_time,
+           r.status,
+           m.first_name, m.last_name, m.email, m.contact_number,
+           b.bike_name_model, b.bike_type, b.hourly_rate,
+           rr.return_date AS actual_return_date,
+           rr.return_time AS actual_return_time
+    FROM dbo.Rentals r
+    INNER JOIN dbo.Member m ON m.Member_ID = r.member_id
+    INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+    OUTER APPLY (
+        SELECT TOP 1 return_date, return_time
+        FROM dbo.Returns x
+        WHERE x.rental_id = r.Rental_ID
+        ORDER BY x.Return_ID DESC
+    ) rr
+    ORDER BY r.Rental_ID DESC;
+
+    -- Summary metrics for admin overview
+    SELECT
+        ActiveCount = (SELECT COUNT(*) FROM dbo.Rentals WHERE status IN ('Pending','Active')),
+        OverdueCount = (SELECT COUNT(*) FROM dbo.Rentals WHERE status IN ('Pending','Active') AND return_date < CONVERT(date, GETDATE())),
+        CompletedToday = (SELECT COUNT(*) FROM dbo.Returns WHERE return_date = CONVERT(date, GETDATE())),
+        TodayRevenue = (
+            SELECT SUM(
+                CAST(b.hourly_rate AS FLOAT) * NULLIF(DATEDIFF(HOUR,
+                    CONVERT(datetime, CONCAT(CONVERT(varchar(10), r.rental_date, 120), ' ', CONVERT(varchar(8), r.rental_time, 108))),
+                    CONVERT(datetime, CONCAT(CONVERT(varchar(10), x.return_date, 120), ' ', CONVERT(varchar(8), x.return_time, 108)))
+                ), 0)
+            )
+            FROM dbo.Returns x
+            INNER JOIN dbo.Rentals r ON r.Rental_ID = x.rental_id
+            INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+            WHERE x.return_date = CONVERT(date, GETDATE())
+        );
+END;
+GO
 
 -- Stored Procedure: List Payments (latest first)
 IF OBJECT_ID('dbo.sp_ListPayments', 'P') IS NOT NULL
@@ -1163,6 +1628,276 @@ BEGIN
     LEFT JOIN dbo.Rentals r ON r.Rental_ID = p.rental_id
     LEFT JOIN dbo.Member m ON m.Member_ID = r.member_id
     ORDER BY p.Payment_ID DESC;
+END;
+GO
+
+-- Confirm a pending payment and mark related rental as completed when applicable
+IF OBJECT_ID('dbo.sp_ConfirmPayment', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ConfirmPayment;
+GO
+CREATE PROCEDURE dbo.sp_ConfirmPayment
+    @PaymentID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @RentalID INT;
+
+    SELECT @RentalID = rental_id
+    FROM dbo.Payments
+    WHERE Payment_ID = @PaymentID;
+
+    IF @RentalID IS NULL
+    BEGIN
+        RAISERROR('Payment not found', 16, 1);
+        RETURN;
+    END
+
+    -- Ensure we do not create a second completed payment for the same rental
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.Payments
+        WHERE rental_id = @RentalID
+          AND status = 'completed'
+          AND Payment_ID <> @PaymentID
+    )
+    BEGIN
+        RAISERROR('A completed payment already exists for this rental.', 16, 1);
+        RETURN;
+    END
+
+    UPDATE dbo.Payments
+    SET status = 'completed',
+        payment_date = GETDATE()
+    WHERE Payment_ID = @PaymentID
+      AND status = 'pending';
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RAISERROR('Payment not pending or not found', 16, 1);
+        RETURN;
+    END
+
+    -- Best-effort: mark related rental as completed
+    IF @RentalID IS NOT NULL
+    BEGIN
+        UPDATE dbo.Rentals
+        SET status = 'Completed'
+        WHERE Rental_ID = @RentalID
+          AND (status IS NULL OR status <> 'Completed');
+    END
+
+    SELECT CAST(1 AS BIT) AS Success;
+END;
+GO
+
+-- Payments listing with filters (status, method, range, sort)
+IF OBJECT_ID('dbo.sp_GetPaymentsFiltered', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetPaymentsFiltered;
+GO
+CREATE PROCEDURE dbo.sp_GetPaymentsFiltered
+    @Status NVARCHAR(20) = NULL,
+    @Method NVARCHAR(20) = NULL,
+    @Range NVARCHAR(10) = NULL, -- 'today','week','month' or NULL
+    @Sort  NVARCHAR(20) = NULL  -- 'recent','oldest','amount-high','amount-low'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Sql NVARCHAR(MAX) = N'
+        SELECT p.Payment_ID, p.transaction_id, p.payment_date, p.rental_id,
+               p.payment_method, p.amount, p.status,
+               m.first_name, m.last_name
+        FROM dbo.Payments p
+        LEFT JOIN dbo.Rentals r ON r.Rental_ID = p.rental_id
+        LEFT JOIN dbo.Member m ON m.Member_ID = r.member_id
+        WHERE 1 = 1';
+
+    DECLARE @Params NVARCHAR(200) = N'@Status NVARCHAR(20), @Method NVARCHAR(20), @Range NVARCHAR(10)';
+
+    IF @Status IS NOT NULL AND LTRIM(RTRIM(@Status)) <> ''
+        SET @Sql += N' AND p.status = @Status';
+
+    IF @Method IS NOT NULL AND LTRIM(RTRIM(@Method)) <> ''
+        SET @Sql += N' AND p.payment_method = @Method';
+
+    IF @Range IS NOT NULL
+    BEGIN
+        DECLARE @RangeLower NVARCHAR(10) = LOWER(LTRIM(RTRIM(@Range)));
+        IF @RangeLower = 'today'
+            SET @Sql += N' AND CAST(p.payment_date AS date) = CAST(GETDATE() AS date)';
+        ELSE IF @RangeLower = 'week'
+            SET @Sql += N' AND CAST(p.payment_date AS date) >= DATEADD(day, -6, CAST(GETDATE() AS date))';
+        ELSE IF @RangeLower = 'month'
+            SET @Sql += N' AND YEAR(p.payment_date) = YEAR(GETDATE()) AND MONTH(p.payment_date) = MONTH(GETDATE())';
+    END
+
+    DECLARE @SortLower NVARCHAR(20) = LOWER(ISNULL(LTRIM(RTRIM(@Sort)), 'recent'));
+    IF @SortLower = 'oldest'
+        SET @Sql += N' ORDER BY p.Payment_ID ASC';
+    ELSE IF @SortLower = 'amount-high'
+        SET @Sql += N' ORDER BY p.amount DESC';
+    ELSE IF @SortLower = 'amount-low'
+        SET @Sql += N' ORDER BY p.amount ASC';
+    ELSE
+        SET @Sql += N' ORDER BY p.Payment_ID DESC';
+
+    EXEC sp_executesql @Sql, @Params,
+        @Status = @Status,
+        @Method = @Method,
+        @Range = @Range;
+END;
+GO
+
+-- Payments summary + pending overview (used by dashboard)
+IF OBJECT_ID('dbo.sp_GetPaymentSummaryAndPending', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetPaymentSummaryAndPending;
+GO
+CREATE PROCEDURE dbo.sp_GetPaymentSummaryAndPending
+    @Range NVARCHAR(10) = NULL -- for pending filters: today/week/month
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE
+        @SumToday FLOAT = 0,
+        @SumWeek FLOAT = 0,
+        @SumMonth FLOAT = 0,
+        @SumYesterday FLOAT = 0,
+        @SumPrevWeek FLOAT = 0,
+        @SumPrevMonth FLOAT = 0,
+        @PendingCount INT = 0,
+        @PendingTotal FLOAT = 0,
+        @TodayChangePct FLOAT = NULL,
+        @WeekChangePct FLOAT = NULL,
+        @MonthChangePct FLOAT = NULL;
+
+    SELECT @SumToday = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'completed'
+      AND CAST(payment_date AS date) = CAST(GETDATE() AS date);
+
+    SELECT @SumWeek = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'completed'
+      AND CAST(payment_date AS date) >= DATEADD(day, -6, CAST(GETDATE() AS date));
+
+    SELECT @SumMonth = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'completed'
+      AND YEAR(payment_date) = YEAR(GETDATE())
+      AND MONTH(payment_date) = MONTH(GETDATE());
+
+    SELECT @SumYesterday = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'completed'
+      AND CAST(payment_date AS date) = DATEADD(day, -1, CAST(GETDATE() AS date));
+
+    SELECT @SumPrevWeek = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'completed'
+      AND CAST(payment_date AS date) >= DATEADD(day, -13, CAST(GETDATE() AS date))
+      AND CAST(payment_date AS date) <  DATEADD(day, -6, CAST(GETDATE() AS date));
+
+    SELECT @SumPrevMonth = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'completed'
+      AND YEAR(payment_date) = YEAR(DATEADD(month,-1,GETDATE()))
+      AND MONTH(payment_date) = MONTH(DATEADD(month,-1,GETDATE()));
+
+    IF @SumYesterday > 0 SET @TodayChangePct = ((@SumToday - @SumYesterday) / @SumYesterday) * 100.0;
+    IF @SumPrevWeek > 0 SET @WeekChangePct = ((@SumWeek - @SumPrevWeek) / @SumPrevWeek) * 100.0;
+    IF @SumPrevMonth > 0 SET @MonthChangePct = ((@SumMonth - @SumPrevMonth) / @SumPrevMonth) * 100.0;
+
+    DECLARE @RangeLower NVARCHAR(10) = LOWER(LTRIM(RTRIM(ISNULL(@Range, ''))));
+
+    -- Pending payments (optionally filtered by range)
+    SELECT
+        @PendingCount = ISNULL(COUNT(*), 0),
+        @PendingTotal = ISNULL(SUM(CAST(amount AS FLOAT)), 0)
+    FROM dbo.Payments
+    WHERE status = 'pending'
+      AND (
+            @RangeLower = ''
+         OR (@RangeLower = 'today'  AND CAST(payment_date AS date) = CAST(GETDATE() AS date))
+         OR (@RangeLower = 'week'   AND CAST(payment_date AS date) >= DATEADD(day, -6, CAST(GETDATE() AS date)))
+         OR (@RangeLower = 'month'  AND YEAR(payment_date) = YEAR(GETDATE()) AND MONTH(payment_date) = MONTH(GETDATE()))
+      );
+
+    SELECT
+        @SumToday       AS TodayRevenue,
+        @SumWeek        AS WeekRevenue,
+        @SumMonth       AS MonthRevenue,
+        @PendingCount   AS PendingCount,
+        @PendingTotal   AS PendingTotal,
+        @TodayChangePct AS TodayChangePct,
+        @WeekChangePct  AS WeekChangePct,
+        @MonthChangePct AS MonthChangePct;
+END;
+GO
+
+-- Method sums (completed payments by method)
+IF OBJECT_ID('dbo.sp_GetPaymentMethodSums', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetPaymentMethodSums;
+GO
+CREATE PROCEDURE dbo.sp_GetPaymentMethodSums
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        LOWER(ISNULL(payment_method, '')) AS payment_method,
+        SUM(CAST(amount AS FLOAT)) AS TotalAmount
+    FROM dbo.Payments
+    WHERE status = 'completed'
+    GROUP BY payment_method;
+END;
+GO
+
+-- Recent payment activity (latest 8 rows)
+IF OBJECT_ID('dbo.sp_GetRecentPaymentActivity', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetRecentPaymentActivity;
+GO
+CREATE PROCEDURE dbo.sp_GetRecentPaymentActivity
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 8
+        p.payment_date,
+        p.amount,
+        p.status,
+        m.first_name,
+        m.last_name
+    FROM dbo.Payments p
+    LEFT JOIN dbo.Rentals r ON r.Rental_ID = p.rental_id
+    LEFT JOIN dbo.Member m ON m.Member_ID = r.member_id
+    ORDER BY p.payment_date DESC, p.Payment_ID DESC;
+END;
+GO
+
+-- Rentals without a completed payment (unpaid)
+IF OBJECT_ID('dbo.sp_GetUnpaidRentals', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetUnpaidRentals;
+GO
+CREATE PROCEDURE dbo.sp_GetUnpaidRentals
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        r.Rental_ID,
+        r.rental_date,
+        r.rental_time,
+        r.status AS rental_status,
+        m.first_name,
+        m.last_name,
+        b.bike_name_model
+    FROM dbo.Rentals r
+    INNER JOIN dbo.Member m ON m.Member_ID = r.member_id
+    INNER JOIN dbo.Bike b   ON b.Bike_ID   = r.bike_id
+    LEFT JOIN dbo.Payments p ON p.rental_id = r.Rental_ID AND p.status = 'completed'
+    WHERE p.Payment_ID IS NULL
+      AND r.status <> 'Cancelled'
+    ORDER BY r.Rental_ID DESC;
 END;
 GO
 CREATE PROCEDURE dbo.sp_UpdateBusinessInfo

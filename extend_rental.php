@@ -104,40 +104,23 @@ try {
     $newDurationHours = (int)floor($diffSecs / 3600);
     if ($newDurationHours < 1) { $newDurationHours = 1; }
 
-    // Persist updated planned return date/time
-    sqlsrv_begin_transaction($conn);
-
-    if ($hasReturnTimeCol) {
-        $upd = sqlsrv_query(
-            $conn,
-            'UPDATE Rentals SET return_date = CONVERT(date, ?), return_time = CONVERT(time, ?) WHERE Rental_ID = ? AND member_id = ?',
-            [
-                $newEnd->format('Y-m-d'),
-                $newEnd->format('H:i:s'),
-                $rentalId,
-                $memberId
-            ]
-        );
-    } else {
-        $upd = sqlsrv_query(
-            $conn,
-            'UPDATE Rentals SET return_date = CONVERT(date, ?) WHERE Rental_ID = ? AND member_id = ?',
-            [
-                $newEnd->format('Y-m-d'),
-                $rentalId,
-                $memberId
-            ]
-        );
-    }
+    // Persist updated planned return date/time via stored procedure
+    $upd = sqlsrv_query(
+        $conn,
+        'EXEC dbo.sp_ExtendRental @RentalID = ?, @MemberID = ?, @NewReturnDate = ?, @NewReturnTime = ?',
+        [
+            $rentalId,
+            $memberId,
+            $newEnd->format('Y-m-d'),
+            $newEnd->format('H:i:s')
+        ]
+    );
 
     if ($upd === false) {
-        sqlsrv_rollback($conn);
         echo json_encode(['success' => false, 'message' => 'Failed to update rental']);
         closeConnection($conn);
         exit();
     }
-
-    sqlsrv_commit($conn);
 
     echo json_encode([
         'success' => true,

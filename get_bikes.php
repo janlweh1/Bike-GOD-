@@ -20,14 +20,8 @@ if ($conn === false) {
     exit;
 }
 
-$sql = "SELECT Bike_ID,
-           bike_name_model,
-           bike_type,
-           availability_status,
-           hourly_rate
-    FROM dbo.Bike
-    ORDER BY Bike_ID";
-$stmt = sqlsrv_query($conn, $sql);
+// Use stored procedure for bike listing
+$stmt = sqlsrv_query($conn, "EXEC dbo.sp_ListBikes");
 if ($stmt === false) {
     echo json_encode(["success" => false, "error" => "query_failed", "detail" => sqlsrv_errors()]);
     sqlsrv_close($conn);

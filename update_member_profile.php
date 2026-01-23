@@ -86,30 +86,17 @@ if ($username !== '') {
     }
 }
 
-// Build dynamic update depending on whether email/username were supplied
-$updateFields = '';
-$params = [];
-
-if ($username !== '') {
-    $updateFields .= 'username = ?';
-    $params[] = $username;
-}
-
-if ($updateFields !== '') {
-    $updateFields .= ', ';
-}
-
-if ($email !== '') {
-    $updateFields .= 'first_name = ?, last_name = ?, email = ?, contact_number = ?, address = ?';
-    array_push($params, $firstName, $lastName, $email, $phone, $address);
-} else {
-    $updateFields .= 'first_name = ?, last_name = ?, contact_number = ?, address = ?';
-    array_push($params, $firstName, $lastName, $phone, $address);
-}
-
-$updateSql = 'UPDATE Member SET ' . $updateFields . ' WHERE Member_ID = ?';
-$params[] = $memberId;
-$updateStmt = sqlsrv_query($conn, $updateSql, $params);
+// Update via stored procedure (profile fields)
+$updateSql = 'EXEC dbo.sp_UpdateMemberProfile @MemberID = ?, @Username = ?, @FirstName = ?, @LastName = ?, @Email = ?, @Phone = ?, @Address = ?';
+$updateStmt = sqlsrv_query($conn, $updateSql, [
+    $memberId,
+    $username !== '' ? $username : null,
+    $firstName,
+    $lastName,
+    $email !== '' ? $email : null,
+    $phone !== '' ? $phone : null,
+    $address !== '' ? $address : null
+]);
 
 if ($updateStmt === false) {
     $err = sqlsrv_errors();

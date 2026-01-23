@@ -60,8 +60,8 @@ if (!password_verify($currentPassword, $storedHash)) {
 }
 
 $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-$updSql = 'UPDATE Member SET password = ? WHERE Member_ID = ?';
-$updStmt = sqlsrv_query($conn, $updSql, [$newHash, $memberId]);
+$updSql = 'EXEC dbo.sp_UpdateMemberPassword @MemberID = ?, @PasswordHash = ?';
+$updStmt = sqlsrv_query($conn, $updSql, [$memberId, $newHash]);
 if ($updStmt === false) {
     echo json_encode(['success' => false, 'message' => 'Failed to update password']);
     closeConnection($conn);

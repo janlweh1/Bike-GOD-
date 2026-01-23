@@ -31,60 +31,8 @@ function fmt_date($d) { return $d instanceof DateTime ? $d->format('Y-m-d') : nu
 function fmt_time($t) { return $t instanceof DateTime ? $t->format('H:i') : null; }
 
 try {
-    // Detect if Rentals has return_time column
-    $hasReturnTimeCol = false;
-    $colStmt = sqlsrv_query($conn, "SELECT 1 AS X FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Rentals' AND COLUMN_NAME = 'return_time'");
-    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) { $hasReturnTimeCol = true; }
-
-    // Fetch rentals joined with member & bike; include latest return if present
-    $sql = (
-        $hasReturnTimeCol
-        ? "
-        SELECT r.Rental_ID,
-               r.rental_date,
-               r.rental_time,
-               r.return_date AS planned_return_date,
-               r.return_time AS planned_return_time,
-               r.status,
-               m.first_name, m.last_name, m.email, m.contact_number,
-               b.bike_name_model, b.bike_type, b.hourly_rate,
-               rr.return_date AS actual_return_date,
-               rr.return_time AS actual_return_time
-        FROM Rentals r
-        INNER JOIN Member m ON m.Member_ID = r.member_id
-        INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-        OUTER APPLY (
-            SELECT TOP 1 return_date, return_time
-            FROM Returns x
-            WHERE x.rental_id = r.Rental_ID
-            ORDER BY x.Return_ID DESC
-        ) rr
-        ORDER BY r.Rental_ID DESC
-    "
-        : "
-        SELECT r.Rental_ID,
-               r.rental_date,
-               r.rental_time,
-               r.return_date AS planned_return_date,
-               r.status,
-               m.first_name, m.last_name, m.email, m.contact_number,
-               b.bike_name_model, b.bike_type, b.hourly_rate,
-               rr.return_date AS actual_return_date,
-               rr.return_time AS actual_return_time
-        FROM Rentals r
-        INNER JOIN Member m ON m.Member_ID = r.member_id
-        INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-        OUTER APPLY (
-            SELECT TOP 1 return_date, return_time
-            FROM Returns x
-            WHERE x.rental_id = r.Rental_ID
-            ORDER BY x.Return_ID DESC
-        ) rr
-        ORDER BY r.Rental_ID DESC
-    "
-    );
-
-    $stmt = sqlsrv_query($conn, $sql);
+    // Use stored procedure for rentals list + summary
+    $stmt = sqlsrv_query($conn, "EXEC dbo.sp_ListRentalsWithSummary");
     if ($stmt === false) {
         throw new Exception('Query failed');
     }
@@ -185,34 +133,15 @@ try {
         $rentals[] = $r;
     }
 
-    // Compute summary directly from DB for accuracy
+    // Read summary from second result set of stored procedure
     $sumActive = 0; $sumOverdue = 0; $sumCompletedToday = 0; $sumRevenueToday = 0.0;
-
-    // Active / ongoing bookings in DB are stored as 'Pending' (and possibly 'Active').
-    // Treat both as "active" for overview analytics.
-    $stmtA = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Rentals WHERE status IN ('Pending','Active')");
-    if ($stmtA && ($rowA = sqlsrv_fetch_array($stmtA, SQLSRV_FETCH_ASSOC))) { $sumActive = (int)$rowA['Cnt']; }
-    // Overdue: planned return date before today while still not completed/cancelled
-    $stmtO = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Rentals WHERE status IN ('Pending','Active') AND return_date < CONVERT(date, GETDATE())");
-    if ($stmtO && ($rowO = sqlsrv_fetch_array($stmtO, SQLSRV_FETCH_ASSOC))) { $sumOverdue = (int)$rowO['Cnt']; }
-    // Completed today
-    $stmtC = sqlsrv_query($conn, "SELECT COUNT(*) AS Cnt FROM Returns WHERE return_date = CONVERT(date, GETDATE())");
-    if ($stmtC && ($rowC = sqlsrv_fetch_array($stmtC, SQLSRV_FETCH_ASSOC))) { $sumCompletedToday = (int)$rowC['Cnt']; }
-    // Revenue today: sum of hourly_rate * duration between rental start and actual return for returns today
-    $stmtR = sqlsrv_query($conn, "
-        SELECT SUM(
-            CAST(b.hourly_rate AS FLOAT) * NULLIF(DATEDIFF(HOUR,
-                CONVERT(datetime, CONCAT(CONVERT(varchar(10), r.rental_date, 120), ' ', CONVERT(varchar(8), r.rental_time, 108))),
-                CONVERT(datetime, CONCAT(CONVERT(varchar(10), x.return_date, 120), ' ', CONVERT(varchar(8), x.return_time, 108)))
-            ), 0)
-        ) AS Revenue
-        FROM Returns x
-        INNER JOIN Rentals r ON r.Rental_ID = x.rental_id
-        INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-        WHERE x.return_date = CONVERT(date, GETDATE())
-    ");
-    if ($stmtR && ($rowR = sqlsrv_fetch_array($stmtR, SQLSRV_FETCH_ASSOC)) && isset($rowR['Revenue'])) {
-        $sumRevenueToday = (float)$rowR['Revenue'];
+    if (sqlsrv_next_result($stmt)) {
+        if ($rowS = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            if (isset($rowS['ActiveCount'])) $sumActive = (int)$rowS['ActiveCount'];
+            if (isset($rowS['OverdueCount'])) $sumOverdue = (int)$rowS['OverdueCount'];
+            if (isset($rowS['CompletedToday'])) $sumCompletedToday = (int)$rowS['CompletedToday'];
+            if (isset($rowS['TodayRevenue'])) $sumRevenueToday = (float)$rowS['TodayRevenue'];
+        }
     }
 
     if (ob_get_length()) { ob_clean(); }

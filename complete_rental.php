@@ -45,35 +45,15 @@ try {
         exit();
     }
 
-    // Start a transaction
-    sqlsrv_begin_transaction($conn);
-
-    // Update Rentals: set status = Completed, ensure planned return_date set (if null)
-    $upd = sqlsrv_query($conn, "UPDATE Rentals SET status = 'Completed', return_date = ISNULL(return_date, CONVERT(date, GETDATE())) WHERE Rental_ID = ?", [$rentalId]);
-    if ($upd === false) { throw new Exception('Failed to update rental'); }
-
-    // Insert Returns row if none exists
-    $hasRet = sqlsrv_query($conn, 'SELECT TOP 1 Return_ID FROM Returns WHERE rental_id = ? ORDER BY Return_ID DESC', [$rentalId]);
-    $exists = ($hasRet && sqlsrv_fetch_array($hasRet, SQLSRV_FETCH_ASSOC));
-    if (!$exists) {
-        $ins = sqlsrv_query(
-            $conn,
-            "INSERT INTO Returns (rental_id, admin_id, return_date, return_time, condition, remarks)
-             VALUES (?, ?, CONVERT(date, GETDATE()), CONVERT(time, GETDATE()), ?, ?)",
-            [$rentalId, $adminId, 'Good', '']
-        );
-        if ($ins === false) { throw new Exception('Failed to insert return'); }
+    // Complete rental via stored procedure
+    $res = sqlsrv_query($conn, 'EXEC dbo.sp_CompleteRentalAdmin @RentalID = ?, @AdminID = ?', [$rentalId, $adminId]);
+    if ($res === false) {
+        throw new Exception('Failed to complete rental');
     }
 
-    // Free the bike (set Available) upon completion
-    $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = (SELECT bike_id FROM Rentals WHERE Rental_ID = ?)", [$rentalId]);
-    if ($updBike === false) { throw new Exception('Failed to update bike availability'); }
-
-    sqlsrv_commit($conn);
     echo json_encode(['success' => true]);
 
 } catch (Exception $e) {
-    if ($conn) { sqlsrv_rollback($conn); }
     echo json_encode(['success' => false, 'message' => 'Error completing rental']);
 }
 

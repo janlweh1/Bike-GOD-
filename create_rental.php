@@ -80,52 +80,28 @@ try {
         }
     }
 
-    if ($hasReturnTimeCol) {
-        $ins = sqlsrv_query(
-            $conn,
-            'INSERT INTO Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, return_time, status)
-             OUTPUT INSERTED.Rental_ID
-             VALUES (?, ?, ?, CONVERT(date, ?), CONVERT(time, ?), CONVERT(date, ?), CONVERT(time, ?), ?);',
-            [
-                $memberId,
-                $bikeId,
-                $adminId,
-                $pickupDt->format('Y-m-d'),
-                $pickupDt->format('H:i:s'),
-                $plannedReturnDate,
-                $endDt->format('H:i:s'),
-                $rentalStatus
-            ]
-        );
-    } else {
-        $ins = sqlsrv_query(
-            $conn,
-            'INSERT INTO Rentals (member_id, bike_id, admin_id, rental_date, rental_time, return_date, status)
-             OUTPUT INSERTED.Rental_ID
-             VALUES (?, ?, ?, CONVERT(date, ?), CONVERT(time, ?), CONVERT(date, ?), ?);',
-            [
-                $memberId,
-                $bikeId,
-                $adminId,
-                $pickupDt->format('Y-m-d'),
-                $pickupDt->format('H:i:s'),
-                $plannedReturnDate,
-                $rentalStatus
-            ]
-        );
-    }
+    // Create rental and mark bike rented via stored procedure
+    $ins = sqlsrv_query(
+        $conn,
+        'EXEC dbo.sp_CreateRental @MemberID = ?, @BikeID = ?, @AdminID = ?, @RentalDate = ?, @RentalTime = ?, @PlannedReturnDate = ?, @PlannedReturnTime = ?, @Status = ?',
+        [
+            $memberId,
+            $bikeId,
+            $adminId,
+            $pickupDt->format('Y-m-d'),
+            $pickupDt->format('H:i:s'),
+            $plannedReturnDate,
+            $endDt->format('H:i:s'),
+            $rentalStatus
+        ]
+    );
     if ($ins === false) { throw new Exception('Failed to insert rental: ' . print_r(sqlsrv_errors(), true)); }
 
     $newId = null;
     if ($row = sqlsrv_fetch_array($ins, SQLSRV_FETCH_ASSOC)) {
-        // OUTPUT returns a single column named Rental_ID
-        $newId = (int)array_values($row)[0];
+        $newId = isset($row['Rental_ID']) ? (int)$row['Rental_ID'] : (int)array_values($row)[0];
     }
     if (!$newId) { throw new Exception('Failed to get rental id after insert'); }
-
-    // Update bike availability
-    $upd = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Rented' WHERE Bike_ID = ?", [$bikeId]);
-    if ($upd === false) { throw new Exception('Failed to update bike'); }
 
     sqlsrv_commit($conn);
 

@@ -32,42 +32,24 @@ if ($paymentId <= 0) {
 }
 
 try {
-    // Update pending -> completed and set payment_date to now
-    $sql = "UPDATE Payments SET status = 'completed', payment_date = GETDATE() WHERE Payment_ID = ? AND status = 'pending'";
+    $sql = "EXEC dbo.sp_ConfirmPayment @PaymentID = ?";
     $stmt = sqlsrv_query($conn, $sql, [$paymentId]);
     if ($stmt === false) {
         $errs = sqlsrv_errors();
         $msg = 'Error confirming payment';
-        if ($errs && isset($errs[0]['SQLSTATE'])) {
-            $state = $errs[0]['SQLSTATE'];
-            if ($state === '23000') {
+        if ($errs && isset($errs[0]['message'])) {
+            if (stripos($errs[0]['message'], 'completed payment already exists') !== false) {
                 $msg = 'A completed payment already exists for this rental.';
+            } elseif (stripos($errs[0]['message'], 'not pending or not found') !== false) {
+                $msg = 'Payment not pending or not found';
             }
         }
         echo json_encode(['success' => false, 'message' => $msg]);
         closeConnection($conn);
         exit();
     }
-    // Check rows affected
-    $rows = sqlsrv_rows_affected($stmt);
-    if ($rows === false || $rows === 0) {
-        echo json_encode(['success' => false, 'message' => 'Payment not pending or not found']);
-        closeConnection($conn);
-        exit();
-    }
 
-    // Also mark related rental as completed if exists
-    $rentalId = null;
-    $stmtR = sqlsrv_query($conn, 'SELECT rental_id FROM Payments WHERE Payment_ID = ?', [$paymentId]);
-    if ($stmtR && ($rowR = sqlsrv_fetch_array($stmtR, SQLSRV_FETCH_ASSOC))) {
-        $rentalId = isset($rowR['rental_id']) ? (int)$rowR['rental_id'] : null;
-    }
-    if ($rentalId) {
-        // Update Rentals.status to Completed if not already
-        $stmtU = sqlsrv_query($conn, "UPDATE Rentals SET status = 'Completed' WHERE Rental_ID = ? AND (status IS NULL OR status <> 'Completed')", [$rentalId]);
-        // ignore failure; best-effort
-    }
-
+    // Procedure succeeded
     echo json_encode(['success' => true]);
 
 } catch (Exception $e) {

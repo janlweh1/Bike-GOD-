@@ -23,22 +23,8 @@ if ($memberId <= 0) {
     exit();
 }
 
-// Block delete if rentals exist
-$rentalsStmt = sqlsrv_query($conn, 'SELECT COUNT(*) AS cnt FROM Rentals WHERE member_id = ?', [$memberId]);
-if ($rentalsStmt === false) {
-    echo json_encode(['success' => false, 'message' => 'Validation query failed']);
-    closeConnection($conn);
-    exit();
-}
-$rentalsRow = sqlsrv_fetch_array($rentalsStmt, SQLSRV_FETCH_ASSOC);
-if ($rentalsRow && (int)$rentalsRow['cnt'] > 0) {
-    echo json_encode(['success' => false, 'message' => 'Cannot delete member with existing rentals']);
-    closeConnection($conn);
-    exit();
-}
-
-// Delete member
-$delStmt = sqlsrv_query($conn, 'DELETE FROM Member WHERE Member_ID = ?', [$memberId]);
+// Delete member via stored procedure (handles rentals check internally)
+$delStmt = sqlsrv_query($conn, 'EXEC dbo.sp_DeleteMemberIfNoRentals @MemberID = ?', [$memberId]);
 if ($delStmt === false) {
     $err = sqlsrv_errors();
     $msg = 'Delete failed';
@@ -48,6 +34,17 @@ if ($delStmt === false) {
     exit();
 }
 
-echo json_encode(['success' => true]);
+$rowsAffected = 0;
+if ($row = sqlsrv_fetch_array($delStmt, SQLSRV_FETCH_ASSOC)) {
+    if (isset($row['RowsAffected'])) {
+        $rowsAffected = (int)$row['RowsAffected'];
+    }
+}
+
+if ($rowsAffected > 0) {
+    echo json_encode(['success' => true]);
+} else {
+    echo json_encode(['success' => false, 'message' => 'Cannot delete member with existing rentals']);
+}
 closeConnection($conn);
 ?>

@@ -42,9 +42,9 @@ if ($cntRow && (int)$cntRow['cnt'] > 0) {
     exit();
 }
 
-// Perform update
-$sql = 'UPDATE Member SET first_name = ?, last_name = ?, email = ?, contact_number = ? WHERE Member_ID = ?';
-$params = [$firstName, $lastName, $email, $phone, $memberId];
+// Perform update via stored procedure
+$sql = 'EXEC dbo.sp_UpdateMemberBasic @MemberID = ?, @FirstName = ?, @LastName = ?, @Email = ?, @Phone = ?';
+$params = [$memberId, $firstName, $lastName, $email, $phone];
 $stmt = sqlsrv_query($conn, $sql, $params);
 
 if ($stmt === false) {

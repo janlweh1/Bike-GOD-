@@ -75,9 +75,9 @@ if ($cntRow && (int)$cntRow['cnt'] > 0) {
     exit();
 }
 
-// Update email
-$updSql = 'UPDATE Member SET email = ? WHERE Member_ID = ?';
-$updStmt = sqlsrv_query($conn, $updSql, [$newEmail, $memberId]);
+// Update email via stored procedure
+$updSql = 'EXEC dbo.sp_UpdateMemberEmail @MemberID = ?, @Email = ?';
+$updStmt = sqlsrv_query($conn, $updSql, [$memberId, $newEmail]);
 if ($updStmt === false) {
     echo json_encode(['success' => false, 'message' => 'Failed to update email']);
     closeConnection($conn);

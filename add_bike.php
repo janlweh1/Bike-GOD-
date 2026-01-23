@@ -78,11 +78,11 @@ if ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $insertedId = isset($row['Bike_ID']) ? (int)$row['Bike_ID'] : null;
 }
 
-// If condition provided and the column exists, update it
+// If condition provided, update it via stored procedure
 if ($insertedId && $dbCondition !== null) {
-    $sqlCond = "IF COL_LENGTH('dbo.Bike','bike_condition') IS NOT NULL \n                 UPDATE dbo.Bike SET bike_condition = ? WHERE Bike_ID = ?";
-    $stmtCond = sqlsrv_query($conn, $sqlCond, [$dbCondition, $insertedId]);
-    // best-effort; ignore failure here to maintain compatibility when column isn't present
+    $sqlCond = "EXEC dbo.sp_UpdateBike @BikeID = ?, @Model = NULL, @Type = NULL, @Status = NULL, @Rate = NULL, @Condition = ?";
+    $stmtCond = sqlsrv_query($conn, $sqlCond, [$insertedId, $dbCondition]);
+    // best-effort; ignore failure here
 }
 
 // Handle optional photo upload after insert
@@ -123,9 +123,9 @@ if ($insertedId && isset($_FILES['photo']) && is_array($_FILES['photo'])) {
                     if (move_uploaded_file($file['tmp_name'], $destFs)) {
                         // Build web path relative to this app root
                         $photoUrl = 'uploads/' . 'bike_' . $insertedId . '.' . $ext;
-                        // Persist to DB column if available
-                        $sqlPhoto = "IF COL_LENGTH('dbo.Bike','photo_url') IS NOT NULL UPDATE dbo.Bike SET photo_url = ? WHERE Bike_ID = ?";
-                        sqlsrv_query($conn, $sqlPhoto, [$photoUrl, $insertedId]);
+                        // Persist to DB via stored procedure
+                        $sqlPhoto = "EXEC dbo.sp_UpdateBikePhoto @BikeID = ?, @PhotoUrl = ?";
+                        sqlsrv_query($conn, $sqlPhoto, [$insertedId, $photoUrl]);
                     } else {
                         $photoError = 'Failed to save uploaded image';
                     }

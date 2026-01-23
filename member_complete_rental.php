@@ -4,7 +4,7 @@ session_start();
 header('Content-Type: application/json');
 
 // Must be logged in as member
-if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'member') {
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'member' || !isset($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();
@@ -29,200 +29,50 @@ if ($memberId <= 0 || $rentalId <= 0) {
 }
 
 try {
-    // Load rental and basic info; ensure it belongs to this member
-    $stmt = sqlsrv_query(
-        $conn,
-        "SELECT r.Rental_ID, r.member_id, r.bike_id, r.admin_id, r.rental_date, r.rental_time, r.return_date, r.status
-         FROM Rentals r
-         WHERE r.Rental_ID = ?",
-        [$rentalId]
-    );
-    if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
-        echo json_encode(['success' => false, 'message' => 'Rental not found']);
+    $sql = "EXEC dbo.sp_MemberEndRental @RentalID = ?, @MemberID = ?, @RequestedAction = ?";
+    $params = [
+        $rentalId,
+        $memberId,
+        $action !== '' ? $action : null
+    ];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) {
+        $errs = sqlsrv_errors();
+        $msg = 'Error ending rental';
+        $detail = null;
+        if ($errs && isset($errs[0]['message'])) {
+            $detail = $errs[0]['message'];
+            if (stripos($detail, 'Rental not found') !== false) {
+                $msg = 'Rental not found';
+            } elseif (stripos($detail, 'You do not own this rental') !== false) {
+                http_response_code(403);
+                $msg = 'You do not own this rental';
+            } elseif (stripos($detail, 'sp_MemberEndRental') !== false) {
+                $msg = 'Stored procedure sp_MemberEndRental is missing in the database';
+            }
+        }
+        echo json_encode(['success' => false, 'message' => $msg, 'detail' => $detail]);
         closeConnection($conn);
         exit();
     }
 
-    if ((int)$row['member_id'] !== $memberId) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'You do not own this rental']);
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    if (!$row) {
+        echo json_encode(['success' => false, 'message' => 'Error ending rental', 'detail' => 'Procedure returned no result row']);
         closeConnection($conn);
         exit();
     }
 
-    $statusDb = strtolower((string)($row['status'] ?? ''));
-    if (in_array($statusDb, ['completed', 'cancelled'], true)) {
-        // Already ended; nothing more to do
-        echo json_encode(['success' => true, 'message' => 'Rental already ended']);
-        closeConnection($conn);
-        exit();
-    }
-
-    $rentalDate = $row['rental_date'];
-    $rentalTime = $row['rental_time'];
-    $bikeId = (int)($row['bike_id'] ?? 0);
-    $adminId = isset($row['admin_id']) ? (int)$row['admin_id'] : null;
-
-    // Derive whether rental has started from DB times (server-side check)
-    $now = new DateTime('now');
-    $startDt = null;
-    if ($rentalDate instanceof DateTime) {
-        $startDt = new DateTime($rentalDate->format('Y-m-d') . ' ' . ($rentalTime instanceof DateTime ? $rentalTime->format('H:i:s') : '00:00:00'));
-    }
-
-    $hasStarted = $startDt && ($now >= $startDt);
-
-    // Cancellation window logic:
-    // - Customer may cancel any time before start.
-    // - Once started, they may cancel only within the first 5 minutes.
-    // - After that, cancellation is no longer allowed; only completion.
-    $canCancelWindow = true; // default safe; tightened below when we have start datetime
-    if ($startDt instanceof DateTime) {
-        if ($now < $startDt) {
-            $canCancelWindow = true; // before ride starts
-        } else {
-            $elapsedSeconds = $now->getTimestamp() - $startDt->getTimestamp();
-            $canCancelWindow = ($elapsedSeconds <= 300); // 5 minutes * 60 seconds
-        }
-    }
-
-    // Normalise requested action; if not provided or invalid, we fall back
-    // to legacy behaviour (cancel before start, complete after start).
-    $requestedAction = in_array($action, ['complete', 'cancel'], true) ? $action : null;
-
-    sqlsrv_begin_transaction($conn);
-
-    if ($requestedAction === 'cancel') {
-        if (!$canCancelWindow) {
-            // Outside of allowed cancellation window; treat as completion instead
-            $requestedAction = 'complete';
-        }
-    }
-
-    if ($requestedAction === 'cancel') {
-        // Explicit cancellation request from member
-        $upd = sqlsrv_query(
-            $conn,
-            "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
-            [$rentalId]
-        );
-        if ($upd === false) {
-            throw new Exception('Failed to cancel rental');
-        }
-
-        // Free the bike as well
-        if ($bikeId > 0) {
-            $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
-            if ($updBike === false) {
-                throw new Exception('Failed to update bike availability');
-            }
-        }
-
-        $newStatus = 'cancelled';
-    } elseif ($requestedAction === 'complete') {
-        // Explicit completion request from member
-        $upd = sqlsrv_query(
-            $conn,
-            "UPDATE Rentals SET status = 'Completed', return_date = ISNULL(return_date, CONVERT(date, GETDATE())) WHERE Rental_ID = ?",
-            [$rentalId]
-        );
-        if ($upd === false) {
-            throw new Exception('Failed to update rental status');
-        }
-
-        // Insert a Returns row so admin summaries & history see completion
-        $ins = sqlsrv_query(
-            $conn,
-            "INSERT INTO Returns (rental_id, admin_id, return_date, return_time, condition, remarks)
-             VALUES (?, ?, CONVERT(date, GETDATE()), CONVERT(time, GETDATE()), ?, ?)",
-            [
-                $rentalId,
-                $adminId ?: null,
-                'Good',
-                'Returned by member via portal'
-            ]
-        );
-        if ($ins === false) {
-            throw new Exception('Failed to insert return record');
-        }
-
-        // Free the bike
-        if ($bikeId > 0) {
-            $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
-            if ($updBike === false) {
-                throw new Exception('Failed to update bike availability');
-            }
-        }
-
-        $newStatus = 'completed';
-    } else {
-        // Legacy behaviour kept for backward compatibility but updated
-        // to obey the 5-minute cancellation rule:
-        // - If ride has not started yet → Cancelled
-        // - If ride has started and still within 5 minutes → Cancelled
-        // - Otherwise → Completed
-        if (!$hasStarted || $canCancelWindow) {
-            $upd = sqlsrv_query(
-                $conn,
-                "UPDATE Rentals SET status = 'Cancelled' WHERE Rental_ID = ?",
-                [$rentalId]
-            );
-            if ($upd === false) {
-                throw new Exception('Failed to cancel rental');
-            }
-
-            if ($bikeId > 0) {
-                $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
-                if ($updBike === false) {
-                    throw new Exception('Failed to update bike availability');
-                }
-            }
-
-            $newStatus = 'cancelled';
-        } else {
-            $upd = sqlsrv_query(
-                $conn,
-                "UPDATE Rentals SET status = 'Completed', return_date = ISNULL(return_date, CONVERT(date, GETDATE())) WHERE Rental_ID = ?",
-                [$rentalId]
-            );
-            if ($upd === false) {
-                throw new Exception('Failed to update rental status');
-            }
-
-            $ins = sqlsrv_query(
-                $conn,
-                "INSERT INTO Returns (rental_id, admin_id, return_date, return_time, condition, remarks)
-                 VALUES (?, ?, CONVERT(date, GETDATE()), CONVERT(time, GETDATE()), ?, ?)",
-                [
-                    $rentalId,
-                    $adminId ?: null,
-                    'Good',
-                    'Returned by member via portal'
-                ]
-            );
-            if ($ins === false) {
-                throw new Exception('Failed to insert return record');
-            }
-
-            if ($bikeId > 0) {
-                $updBike = sqlsrv_query($conn, "UPDATE Bike SET availability_status = 'Available' WHERE Bike_ID = ?", [$bikeId]);
-                if ($updBike === false) {
-                    throw new Exception('Failed to update bike availability');
-                }
-            }
-
-            $newStatus = 'completed';
-        }
-    }
-
-    sqlsrv_commit($conn);
-    echo json_encode(['success' => true, 'status' => $newStatus]);
+    $newStatus = isset($row['NewStatus']) ? strtolower((string)$row['NewStatus']) : '';
+    echo json_encode([
+        'success' => (bool)$row['Success'],
+        'status'  => $newStatus !== '' ? $newStatus : 'completed',
+        'message' => isset($row['Message']) ? (string)$row['Message'] : 'Rental ended'
+    ]);
 
 } catch (Exception $e) {
-    if ($conn) {
-        sqlsrv_rollback($conn);
-    }
-    echo json_encode(['success' => false, 'message' => 'Error ending rental']);
+    echo json_encode(['success' => false, 'message' => 'Error ending rental', 'detail' => $e->getMessage()]);
 }
 
 closeConnection($conn);

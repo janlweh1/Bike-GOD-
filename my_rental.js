@@ -427,12 +427,20 @@ function submitEndRental(actionOverride) {
         })
             .then(res => res.json())
             .then(data => {
+                // If backend cannot find the rental (e.g. stale local entry from
+                // before DB reset), treat it as a local-only rental and clear it
+                // from the UI without blocking the user.
                 if (!data || data.success === false) {
-                    throw new Error(data && data.message ? data.message : 'Failed to end rental');
+                    const msg = data && data.message ? data.message : 'Failed to end rental';
+                    if (msg.toLowerCase().includes('rental not found')) {
+                        console.warn('Backend reports rental not found; clearing local rental only.');
+                    } else {
+                        throw new Error(msg);
+                    }
                 }
 
                 const endTime = new Date();
-                const finalStatus = data.status || (action === 'complete' ? 'completed' : 'cancelled');
+                const finalStatus = (data && data.status) || (action === 'complete' ? 'completed' : 'cancelled');
 
                 const completedRental = {
                     ...rental,

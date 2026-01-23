@@ -30,9 +30,6 @@ if ($id <= 0) {
 }
 
 // Only update fields provided
-$fields = [];
-$params = [];
-
 // Normalize if provided
 $typeMap = [
     'city' => 'City Bike',
@@ -52,17 +49,27 @@ $condMap = [
     'good' => 'Good',
 ];
 
-if ($model !== '') { $fields[] = 'bike_name_model = ?'; $params[] = $model; }
+// Determine if a photo upload is provided
+$hasPhoto = isset($_FILES['photo']) && is_array($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE;
+
+if ($model === '' && $type === '' && $status === '' && ($rate === null || $rate === '') && $condition === '' && !$hasPhoto) {
+    echo json_encode(['success' => false, 'error' => 'nothing_to_update']);
+    sqlsrv_close($conn);
+    exit;
+}
+
+// Normalise values for procedure call
+$modelParam = $model !== '' ? $model : null;
 if ($type !== '') {
     $lcType = strtolower($type);
-    $dbType = $typeMap[$lcType] ?? $type;
-    $fields[] = 'bike_type = ?';
-    $params[] = $dbType;
+    $typeParam = $typeMap[$lcType] ?? $type;
+} else {
+    $typeParam = null;
 }
 if ($status !== '') {
-    $dbStatus = $statusMap[strtolower($status)] ?? $status;
-    $fields[] = 'availability_status = ?';
-    $params[] = $dbStatus;
+    $statusParam = $statusMap[strtolower($status)] ?? $status;
+} else {
+    $statusParam = null;
 }
 if ($rate !== null && $rate !== '') {
     $rateVal = floatval($rate);
@@ -71,49 +78,25 @@ if ($rate !== null && $rate !== '') {
         sqlsrv_close($conn);
         exit;
     }
-    $fields[] = 'hourly_rate = ?';
-    $params[] = $rateVal;
+    $rateParam = $rateVal;
+} else {
+    $rateParam = null;
 }
 
-// Determine if a photo upload is provided
-$hasPhoto = isset($_FILES['photo']) && is_array($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE;
-
-if (empty($fields) && $condition === '' && !$hasPhoto) {
-    echo json_encode(['success' => false, 'error' => 'nothing_to_update']);
-    sqlsrv_close($conn);
-    exit;
-}
-
-// Call sp_UpdateBike; pass NULL for fields not being updated
-$modelParam = in_array('bike_name_model = ?', $fields) ? $params[array_search('bike_name_model = ?', $fields)] : null;
-$typeParam = in_array('bike_type = ?', $fields) ? ($params[array_search('bike_type = ?', $fields)]) : null;
-$statusParam = in_array('availability_status = ?', $fields) ? ($params[array_search('availability_status = ?', $fields)]) : null;
-$rateParam = in_array('hourly_rate = ?', $fields) ? ($params[array_search('hourly_rate = ?', $fields)]) : null;
-
-// Execute update only if any of the standard fields were provided
-if (!empty($fields)) {
-    $sql = 'EXEC dbo.sp_UpdateBike @BikeID = ?, @Model = ?, @Type = ?, @Status = ?, @Rate = ?';
-    $stmt = sqlsrv_query($conn, $sql, [$id, $modelParam, $typeParam, $statusParam, $rateParam]);
-    if ($stmt === false) {
-        // Fallback: perform a direct UPDATE when the procedure is missing or fails
-        $directSql = 'UPDATE dbo.Bike SET ' . implode(', ', $fields) . ' WHERE Bike_ID = ?';
-        $directParams = $params; // built above in same order as $fields
-        $directParams[] = $id;
-        $stmt2 = sqlsrv_query($conn, $directSql, $directParams);
-        if ($stmt2 === false) {
-            echo json_encode(['success' => false, 'error' => 'update_failed', 'detail' => sqlsrv_errors()]);
-            sqlsrv_close($conn);
-            exit;
-        }
-    }
-}
-
-// If a condition was provided, update it separately when column exists
+$conditionParam = null;
 if ($condition !== '') {
-    $dbCondition = $condMap[strtolower($condition)] ?? $condition;
-    $sqlCond = "IF COL_LENGTH('dbo.Bike','bike_condition') IS NOT NULL \n                 UPDATE dbo.Bike SET bike_condition = ? WHERE Bike_ID = ?";
-    $stmtCond = sqlsrv_query($conn, $sqlCond, [$dbCondition, $id]);
-    // Ignore failure to retain compatibility if column not present
+    $conditionParam = $condMap[strtolower($condition)] ?? $condition;
+}
+
+// Execute stored procedure for main bike fields (including optional condition)
+if ($modelParam !== null || $typeParam !== null || $statusParam !== null || $rateParam !== null || $conditionParam !== null) {
+    $sql = 'EXEC dbo.sp_UpdateBike @BikeID = ?, @Model = ?, @Type = ?, @Status = ?, @Rate = ?, @Condition = ?';
+    $stmt = sqlsrv_query($conn, $sql, [$id, $modelParam, $typeParam, $statusParam, $rateParam, $conditionParam]);
+    if ($stmt === false) {
+        echo json_encode(['success' => false, 'error' => 'update_failed', 'detail' => sqlsrv_errors()]);
+        sqlsrv_close($conn);
+        exit;
+    }
 }
 
 // If a photo file is provided, validate and save
@@ -152,8 +135,9 @@ if ($hasPhoto) {
                     $destFs = $uploadDir . DIRECTORY_SEPARATOR . 'bike_' . $id . '.' . $ext;
                     if (move_uploaded_file($file['tmp_name'], $destFs)) {
                         $photoUrl = 'uploads/' . 'bike_' . $id . '.' . $ext;
-                        $sqlPhoto = "IF COL_LENGTH('dbo.Bike','photo_url') IS NOT NULL UPDATE dbo.Bike SET photo_url = ? WHERE Bike_ID = ?";
-                        sqlsrv_query($conn, $sqlPhoto, [$photoUrl, $id]);
+                        // Update photo via stored procedure
+                        $sqlPhoto = "EXEC dbo.sp_UpdateBikePhoto @BikeID = ?, @PhotoUrl = ?";
+                        sqlsrv_query($conn, $sqlPhoto, [$id, $photoUrl]);
                     } else {
                         $photoError = 'Failed to save uploaded image';
                     }
