@@ -251,7 +251,6 @@ function viewRental(index) {
     document.getElementById('viewReturnTime').textContent = returnTime;
     document.getElementById('viewDuration').textContent = rental.duration + ' hour(s)';
     document.getElementById('viewAmount').textContent = '₱' + rental.cost.toFixed(2);
-    document.getElementById('viewLocation').textContent = rental.location || 'Downtown Station A';
     
     document.getElementById('viewCustomer').textContent = rental.customerName || 'N/A';
     document.getElementById('viewEmail').textContent = rental.customerEmail || 'N/A';
