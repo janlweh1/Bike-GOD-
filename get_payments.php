@@ -171,20 +171,21 @@ try {
     }
 
     // Rentals without a completed payment (unpaid)
-    $unpaidRentals = [];
-    $sqlU = "
-        SELECT r.Rental_ID,
-               r.rental_date,
-               r.rental_time,
-               r.status AS rental_status,
-               m.first_name, m.last_name,
-               b.bike_name_model
-        FROM Rentals r
-        INNER JOIN Member m ON m.Member_ID = r.member_id
-        INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-        LEFT JOIN Payments p ON p.rental_id = r.Rental_ID AND p.status = 'completed'
-        WHERE p.Payment_ID IS NULL
-        ORDER BY r.Rental_ID DESC";
+        $unpaidRentals = [];
+        $sqlU = "
+                SELECT r.Rental_ID,
+                             r.rental_date,
+                             r.rental_time,
+                             r.status AS rental_status,
+                             m.first_name, m.last_name,
+                             b.bike_name_model
+                FROM Rentals r
+                INNER JOIN Member m ON m.Member_ID = r.member_id
+                INNER JOIN Bike b ON b.Bike_ID = r.bike_id
+                LEFT JOIN Payments p ON p.rental_id = r.Rental_ID AND p.status = 'completed'
+                WHERE p.Payment_ID IS NULL
+                    AND r.status <> 'Cancelled'
+                ORDER BY r.Rental_ID DESC";
     $stU = sqlsrv_query($conn, $sqlU);
     if ($stU) {
         while ($row = sqlsrv_fetch_array($stU, SQLSRV_FETCH_ASSOC)) {

@@ -47,11 +47,22 @@ if ($transactionId === '' || $rentalId <= 0 || $amount <= 0 || !in_array($paymen
 $paymentDateTimeStr = $paymentDate . ' ' . $paymentTime;
 
 try {
-    // Get member_id from rentals
+    // Get member_id and current rental status
     $memberId = null;
-    $stmtM = sqlsrv_query($conn, 'SELECT member_id FROM Rentals WHERE Rental_ID = ?', [$rentalId]);
+    $rentalStatusDb = null;
+    $stmtM = sqlsrv_query($conn, 'SELECT member_id, status FROM Rentals WHERE Rental_ID = ?', [$rentalId]);
     if ($stmtM && ($rowM = sqlsrv_fetch_array($stmtM, SQLSRV_FETCH_ASSOC))) {
         $memberId = isset($rowM['member_id']) ? (int)$rowM['member_id'] : null;
+        $rentalStatusDb = strtolower((string)($rowM['status'] ?? ''));
+    }
+
+    // Do not allow payments to be recorded for rentals that have been
+    // cancelled (including those cancelled within the 5-minute free
+    // cancellation window); these should incur no charge.
+    if ($rentalStatusDb === 'cancelled') {
+        echo json_encode(['success' => false, 'message' => 'This rental is cancelled. No payment is required.']);
+        closeConnection($conn);
+        exit();
     }
 
     // Insert payment via stored procedure

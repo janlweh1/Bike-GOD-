@@ -20,7 +20,13 @@ if ($conn === false) {
     exit;
 }
 
-$sql = "EXEC dbo.sp_ListBikes";
+$sql = "SELECT Bike_ID,
+           bike_name_model,
+           bike_type,
+           availability_status,
+           hourly_rate
+    FROM dbo.Bike
+    ORDER BY Bike_ID";
 $stmt = sqlsrv_query($conn, $sql);
 if ($stmt === false) {
     echo json_encode(["success" => false, "error" => "query_failed", "detail" => sqlsrv_errors()]);

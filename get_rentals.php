@@ -98,6 +98,7 @@ try {
         $startDate = $row['rental_date'];
         $startTime = $row['rental_time'];
         $plannedReturnDate = $row['planned_return_date'];
+        $plannedReturnTime = $row['planned_return_time'] ?? null;
         $actualReturnDate = $row['actual_return_date'] ?? null;
         $actualReturnTime = $row['actual_return_time'] ?? null;
         $statusDb = strtolower((string)($row['status'] ?? ''));
@@ -112,7 +113,7 @@ try {
         $plannedEndDt = null;
         if ($plannedReturnDate instanceof DateTime && $startDt) {
             $plannedEndDt = new DateTime($plannedReturnDate->format('Y-m-d') . ' ' . (
-                ($row['planned_return_time'] instanceof DateTime) ? $row['planned_return_time']->format('H:i:s') : (($startTime instanceof DateTime) ? $startTime->format('H:i:s') : '00:00:00')
+                ($plannedReturnTime instanceof DateTime) ? $plannedReturnTime->format('H:i:s') : (($startTime instanceof DateTime) ? $startTime->format('H:i:s') : '00:00:00')
             ));
         }
 

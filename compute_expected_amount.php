@@ -35,8 +35,8 @@ if ($rentalId <= 0) {
 }
 
 try {
-    // Get rental start and rate
-    $stmt = sqlsrv_query($conn, "SELECT r.rental_date, r.rental_time, b.hourly_rate, r.Rental_ID FROM Rentals r INNER JOIN Bike b ON b.Bike_ID = r.bike_id WHERE r.Rental_ID = ?", [$rentalId]);
+    // Get rental start, rate, and status
+    $stmt = sqlsrv_query($conn, "SELECT r.rental_date, r.rental_time, r.status, b.hourly_rate, r.Rental_ID FROM Rentals r INNER JOIN Bike b ON b.Bike_ID = r.bike_id WHERE r.Rental_ID = ?", [$rentalId]);
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Rental not found']);
         closeConnection($conn);
@@ -45,7 +45,23 @@ try {
 
     $startDate = $row['rental_date'];
     $startTime = $row['rental_time'];
+    $statusDb = strtolower((string)($row['status'] ?? ''));
     $rate = isset($row['hourly_rate']) ? (float)$row['hourly_rate'] : 0.0;
+
+    // For cancelled rentals (including free cancellations within the
+    // 5-minute window), no payment is required. Return zero expected
+    // amount so the admin panel clearly shows no charge.
+    if ($statusDb === 'cancelled') {
+        echo json_encode([
+            'success' => true,
+            'expected' => 0.0,
+            'rate' => $rate,
+            'hours' => 0,
+            'usedEnd' => null
+        ]);
+        closeConnection($conn);
+        exit();
+    }
 
     $startDt = null;
     if ($startDate instanceof DateTime) {
