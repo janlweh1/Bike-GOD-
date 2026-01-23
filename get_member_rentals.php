@@ -37,20 +37,7 @@ function resolveBikePhoto($bikeId) {
 }
 
 try {
-    $sql = "
-        SELECT r.Rental_ID,
-               r.rental_date,
-               r.rental_time,
-               r.return_date,
-               r.status AS rental_status,
-               b.Bike_ID,
-               b.bike_name_model,
-               b.bike_type,
-               b.hourly_rate
-        FROM Rentals r
-        INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-        WHERE r.member_id = ?
-        ORDER BY r.Rental_ID DESC";
+    $sql = 'EXEC dbo.sp_GetMemberRentals @MemberID = ?';
     $stmt = sqlsrv_query($conn, $sql, [$memberId]);
     if ($stmt === false) { throw new Exception('Query failed'); }
 

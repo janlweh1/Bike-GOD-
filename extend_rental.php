@@ -42,27 +42,12 @@ if ($memberId <= 0 || $rentalId <= 0 || $additionalHours <= 0) {
 }
 
 try {
-    // Detect return_time column on Rentals
-    $hasReturnTimeCol = false;
-    $colStmt = sqlsrv_query($conn, "SELECT 1 AS X FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Rentals' AND COLUMN_NAME = 'return_time'");
-    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
-        $hasReturnTimeCol = true;
-    }
-
-    // Load the rental belonging to this member, including bike/admin and rate
-    $sql = $hasReturnTimeCol
-        ? "SELECT r.Rental_ID, r.rental_date, r.rental_time, r.return_date, r.return_time, r.status,
-                  r.bike_id, b.admin_id, b.hourly_rate
-           FROM Rentals r
-           INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-           WHERE r.Rental_ID = ? AND r.member_id = ?"
-        : "SELECT r.Rental_ID, r.rental_date, r.rental_time, r.return_date, r.status,
-                  r.bike_id, b.admin_id, b.hourly_rate
-           FROM Rentals r
-           INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-           WHERE r.Rental_ID = ? AND r.member_id = ?";
-
-    $stmt = sqlsrv_query($conn, $sql, [$rentalId, $memberId]);
+    // Load the rental belonging to this member, including bike/admin and rate, via stored procedure
+    $stmt = sqlsrv_query(
+        $conn,
+        'EXEC dbo.sp_GetRentalForExtend @RentalID = ?, @MemberID = ?',
+        [$rentalId, $memberId]
+    );
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Rental not found']);
         closeConnection($conn);
@@ -79,7 +64,7 @@ try {
     $rentalDate = $row['rental_date'];
     $rentalTime = $row['rental_time'];
     $returnDate = $row['return_date'];
-    $returnTime = $hasReturnTimeCol ? ($row['return_time'] ?? null) : null;
+    $returnTime = $row['return_time'] ?? null;
     $bikeId    = isset($row['bike_id']) ? (int)$row['bike_id'] : 0;
     $adminId   = isset($row['admin_id']) ? (int)$row['admin_id'] : 0;
     $hourlyRate = isset($row['hourly_rate']) ? (float)$row['hourly_rate'] : 0.0;

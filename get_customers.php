@@ -25,35 +25,8 @@ $sort = isset($_GET['sort']) ? trim($_GET['sort']) : 'name'; // 'name' | 'recent
 
 try {
     // Get members with stats (total rentals, active rentals, total spent)
-    // Compute analytics via Rentals and Payments instead of storing in Member.
-    $sql = "
-        SELECT
-            m.Member_ID,
-            m.first_name,
-            m.last_name,
-            m.email,
-            m.contact_number,
-            m.username,
-            m.date_joined,
-            COUNT(DISTINCT r.Rental_ID) AS TotalRentals,
-            -- Treat both 'Pending' and 'Active' as active/ongoing bookings
-            SUM(CASE WHEN r.status IN ('Active','Pending') THEN 1 ELSE 0 END) AS ActiveRentals,
-            ISNULL(SUM(CASE WHEN p.status = 'completed' THEN CAST(p.amount AS FLOAT) ELSE 0 END), 0) AS TotalSpent
-        FROM Member m
-        LEFT JOIN Rentals r ON r.member_id = m.Member_ID
-        LEFT JOIN Payments p ON p.rental_id = r.Rental_ID
-        GROUP BY
-            m.Member_ID,
-            m.first_name,
-            m.last_name,
-            m.email,
-            m.contact_number,
-            m.username,
-            m.date_joined
-        ORDER BY m.Member_ID
-    ";
-
-    $stmt = sqlsrv_query($conn, $sql);
+    // via stored procedure sp_GetMembersWithStats
+    $stmt = sqlsrv_query($conn, 'EXEC sp_GetMembersWithStats');
     if ($stmt === false) {
         throw new Exception('Query failed');
     }
@@ -154,13 +127,13 @@ try {
     }
 
     // New this week (ISO week)
-    $stmtWeek = sqlsrv_query($conn, "SELECT COUNT(*) AS NewThisWeek FROM Member WHERE DATEPART(ISO_WEEK, date_joined) = DATEPART(ISO_WEEK, GETDATE()) AND DATEPART(YEAR, date_joined) = DATEPART(YEAR, GETDATE())");
+    $stmtWeek = sqlsrv_query($conn, 'EXEC sp_CountMembersNewThisWeek');
     if ($stmtWeek && $row = sqlsrv_fetch_array($stmtWeek, SQLSRV_FETCH_ASSOC)) {
         $newThisWeek = (int)$row['NewThisWeek'];
     }
 
     // Previous month count
-    $stmtPrevMonth = sqlsrv_query($conn, "SELECT COUNT(*) AS PrevMonth FROM Member WHERE YEAR(date_joined) = YEAR(DATEADD(MONTH,-1,GETDATE())) AND MONTH(date_joined) = MONTH(DATEADD(MONTH,-1,GETDATE()))");
+    $stmtPrevMonth = sqlsrv_query($conn, 'EXEC sp_CountMembersPrevMonth');
     if ($stmtPrevMonth && $row = sqlsrv_fetch_array($stmtPrevMonth, SQLSRV_FETCH_ASSOC)) {
         $prevMonthCount = (int)$row['PrevMonth'];
     }
@@ -175,7 +148,7 @@ try {
     // Count how many members currently have at least one active/ongoing booking.
     // In your DB, upcoming/ongoing rentals are stored as 'Pending', so we
     // count those (and also 'Active' if present) to match the real data.
-    $stmtActiveMembers = sqlsrv_query($conn, "SELECT COUNT(DISTINCT member_id) AS Cnt FROM Rentals WHERE status IN ('Pending','Active')");
+    $stmtActiveMembers = sqlsrv_query($conn, 'EXEC sp_CountActiveRentalMembers');
     if ($stmtActiveMembers && $row = sqlsrv_fetch_array($stmtActiveMembers, SQLSRV_FETCH_ASSOC)) {
         $activeRentals = (int)$row['Cnt'];
     }

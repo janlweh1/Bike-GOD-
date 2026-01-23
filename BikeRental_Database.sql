@@ -235,6 +235,22 @@ BEGIN
 END;
 GO
 
+-- Get member auth info by ID (email + password hash)
+IF OBJECT_ID('dbo.sp_GetMemberAuthById', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetMemberAuthById;
+GO
+CREATE PROCEDURE dbo.sp_GetMemberAuthById
+    @MemberID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT email, password
+    FROM dbo.Member
+    WHERE Member_ID = @MemberID;
+END;
+GO
+
 -- =============================================
 -- Statistics Procedures
 -- =============================================
@@ -343,6 +359,33 @@ BEGIN
 END;
 GO
 
+-- Member-side: List rentals for a given member with bike info
+IF OBJECT_ID('dbo.sp_GetMemberRentals', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetMemberRentals;
+GO
+CREATE PROCEDURE dbo.sp_GetMemberRentals
+    @MemberID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        r.Rental_ID,
+        r.rental_date,
+        r.rental_time,
+        r.return_date,
+        r.status AS rental_status,
+        b.Bike_ID,
+        b.bike_name_model,
+        b.bike_type,
+        b.hourly_rate
+    FROM dbo.Rentals r
+    INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+    WHERE r.member_id = @MemberID
+    ORDER BY r.Rental_ID DESC;
+END;
+GO
+
 -- Self-service: Update full member profile
 IF OBJECT_ID('dbo.sp_UpdateMemberProfile', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateMemberProfile;
@@ -425,6 +468,24 @@ BEGIN
 END;
 GO
 
+-- Utility: Check if an email is already used by another member
+IF OBJECT_ID('dbo.sp_CheckMemberEmailUnique', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CheckMemberEmailUnique;
+GO
+CREATE PROCEDURE dbo.sp_CheckMemberEmailUnique
+    @MemberID INT,
+    @Email NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT COUNT(*) AS Cnt
+    FROM dbo.Member
+    WHERE email = @Email
+      AND Member_ID <> @MemberID;
+END;
+GO
+
 -- Utility: Get top 3 members (basic info)
 CREATE PROCEDURE sp_GetTopMembersEmails
 AS
@@ -447,9 +508,20 @@ BEGIN
         m.contact_number,
         m.username,
         m.date_joined,
-        (SELECT COUNT(*) FROM Rentals r WHERE r.member_id = m.Member_ID) AS TotalRentals,
-        (SELECT COUNT(*) FROM Rentals r WHERE r.member_id = m.Member_ID AND r.status = 'Active') AS ActiveRentals
+        COUNT(DISTINCT r.Rental_ID) AS TotalRentals,
+        SUM(CASE WHEN r.status IN ('Active','Pending') THEN 1 ELSE 0 END) AS ActiveRentals,
+        ISNULL(SUM(CASE WHEN p.status = 'completed' THEN CAST(p.amount AS FLOAT) ELSE 0 END), 0) AS TotalSpent
     FROM Member m
+    LEFT JOIN Rentals r ON r.member_id = m.Member_ID
+    LEFT JOIN Payments p ON p.rental_id = r.Rental_ID
+    GROUP BY
+        m.Member_ID,
+        m.first_name,
+        m.last_name,
+        m.email,
+        m.contact_number,
+        m.username,
+        m.date_joined
     ORDER BY m.Member_ID;
 END;
 GO
@@ -483,6 +555,41 @@ BEGIN
     SELECT COUNT(*) AS NewThisMonth
     FROM Member
     WHERE YEAR(date_joined) = YEAR(GETDATE()) AND MONTH(date_joined) = MONTH(GETDATE());
+END;
+GO
+
+-- Admin: Count members joined in current ISO week
+CREATE PROCEDURE sp_CountMembersNewThisWeek
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) AS NewThisWeek
+    FROM Member
+    WHERE DATEPART(ISO_WEEK, date_joined) = DATEPART(ISO_WEEK, GETDATE())
+      AND DATEPART(YEAR, date_joined) = DATEPART(YEAR, GETDATE());
+END;
+GO
+
+-- Admin: Count members joined in previous month
+CREATE PROCEDURE sp_CountMembersPrevMonth
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) AS PrevMonth
+    FROM Member
+    WHERE YEAR(date_joined) = YEAR(DATEADD(MONTH,-1,GETDATE()))
+      AND MONTH(date_joined) = MONTH(DATEADD(MONTH,-1,GETDATE()));
+END;
+GO
+
+-- Admin: Count members with at least one active/ongoing rental
+CREATE PROCEDURE sp_CountActiveRentalMembers
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(DISTINCT member_id) AS Cnt
+    FROM Rentals
+    WHERE status IN ('Pending','Active');
 END;
 GO
 
@@ -1432,6 +1539,58 @@ BEGIN
     UPDATE dbo.Bike SET availability_status = 'Rented' WHERE Bike_ID = @BikeID;
 
     SELECT @NewID AS Rental_ID;
+END;
+GO
+
+-- Member-side: Get a single rental with bike/admin info for extension
+IF OBJECT_ID('dbo.sp_GetRentalForExtend', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetRentalForExtend;
+GO
+CREATE PROCEDURE dbo.sp_GetRentalForExtend
+    @RentalID INT,
+    @MemberID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        r.Rental_ID,
+        r.rental_date,
+        r.rental_time,
+        r.return_date,
+        r.return_time,
+        r.status,
+        r.bike_id,
+        b.admin_id,
+        b.hourly_rate
+    FROM dbo.Rentals r
+    INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+    WHERE r.Rental_ID = @RentalID
+      AND r.member_id = @MemberID;
+END;
+GO
+
+-- Admin-side: Get basic rental info with member and bike details
+IF OBJECT_ID('dbo.sp_GetRentalInfoAdmin', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetRentalInfoAdmin;
+GO
+CREATE PROCEDURE dbo.sp_GetRentalInfoAdmin
+    @RentalID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        r.Rental_ID,
+        m.first_name,
+        m.last_name,
+        m.email,
+        m.contact_number,
+        b.bike_name_model
+    FROM dbo.Rentals r
+    INNER JOIN dbo.Member m ON m.Member_ID = r.member_id
+    INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+    WHERE r.Rental_ID = @RentalID;
 END;
 GO
 

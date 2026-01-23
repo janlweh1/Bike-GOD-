@@ -24,13 +24,7 @@ if ($rentalId <= 0) {
 }
 
 try {
-    $sql = "SELECT r.Rental_ID,
-                    m.first_name, m.last_name, m.email, m.contact_number,
-                    b.bike_name_model
-             FROM Rentals r
-             INNER JOIN Member m ON m.Member_ID = r.member_id
-             INNER JOIN Bike b ON b.Bike_ID = r.bike_id
-             WHERE r.Rental_ID = ?";
+    $sql = "EXEC dbo.sp_GetRentalInfoAdmin @RentalID = ?";
     $stmt = sqlsrv_query($conn, $sql, [$rentalId]);
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Rental not found']);

@@ -38,8 +38,8 @@ if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
     exit();
 }
 
-// Get current member password and email
-$sql = 'SELECT email, password FROM Member WHERE Member_ID = ?';
+// Get current member password and email via stored procedure
+$sql = 'EXEC dbo.sp_GetMemberAuthById @MemberID = ?';
 $stmt = sqlsrv_query($conn, $sql, [$memberId]);
 if ($stmt === false) {
     echo json_encode(['success' => false, 'message' => 'Query failed']);
@@ -60,9 +60,9 @@ if (!password_verify($currentPassword, $storedHash)) {
     exit();
 }
 
-// Ensure email is unique
-$checkSql = 'SELECT COUNT(*) AS cnt FROM Member WHERE email = ? AND Member_ID <> ?';
-$checkStmt = sqlsrv_query($conn, $checkSql, [$newEmail, $memberId]);
+// Ensure email is unique via stored procedure
+$checkSql = 'EXEC dbo.sp_CheckMemberEmailUnique @MemberID = ?, @Email = ?';
+$checkStmt = sqlsrv_query($conn, $checkSql, [$memberId, $newEmail]);
 if ($checkStmt === false) {
     echo json_encode(['success' => false, 'message' => 'Validation query failed']);
     closeConnection($conn);
