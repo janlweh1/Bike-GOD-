@@ -53,16 +53,16 @@ if ($email !== '') {
         exit();
     }
 
-    // Check email uniqueness among other members
-    $checkSql = 'SELECT COUNT(*) AS cnt FROM Member WHERE email = ? AND Member_ID <> ?';
-    $checkStmt = sqlsrv_query($conn, $checkSql, [$email, $memberId]);
+    // Check email uniqueness among other members via stored procedure
+    $checkSql = 'EXEC dbo.sp_CheckMemberEmailUnique @MemberID = ?, @Email = ?';
+    $checkStmt = sqlsrv_query($conn, $checkSql, [$memberId, $email]);
     if ($checkStmt === false) {
         echo json_encode(['success' => false, 'message' => 'Validation query failed']);
         closeConnection($conn);
         exit();
     }
     $cntRow = sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC);
-    if ($cntRow && (int)$cntRow['cnt'] > 0) {
+    if ($cntRow && (int)$cntRow['Cnt'] > 0) {
         echo json_encode(['success' => false, 'message' => 'Email already in use']);
         closeConnection($conn);
         exit();
@@ -71,15 +71,15 @@ if ($email !== '') {
 
 // If username is provided, ensure it's unique among other members
 if ($username !== '') {
-    $checkUserSql = 'SELECT COUNT(*) AS cnt FROM Member WHERE username = ? AND Member_ID <> ?';
-    $checkUserStmt = sqlsrv_query($conn, $checkUserSql, [$username, $memberId]);
+    $checkUserSql = 'EXEC dbo.sp_CheckMemberUsernameUnique @MemberID = ?, @Username = ?';
+    $checkUserStmt = sqlsrv_query($conn, $checkUserSql, [$memberId, $username]);
     if ($checkUserStmt === false) {
         echo json_encode(['success' => false, 'message' => 'Username validation failed']);
         closeConnection($conn);
         exit();
     }
     $userRow = sqlsrv_fetch_array($checkUserStmt, SQLSRV_FETCH_ASSOC);
-    if ($userRow && (int)$userRow['cnt'] > 0) {
+    if ($userRow && (int)$userRow['Cnt'] > 0) {
         echo json_encode(['success' => false, 'message' => 'Username already in use']);
         closeConnection($conn);
         exit();

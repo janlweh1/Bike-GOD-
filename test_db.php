@@ -38,8 +38,8 @@ if ($conn === false) {
 } else {
     echo "<p style='color: green;'>✅ Connection successful!</p>";
 
-    // Test a simple query
-    $sql = "SELECT COUNT(*) as admin_count FROM Admin";
+    // Test a simple query via stored procedure
+    $sql = 'EXEC dbo.sp_CountAdmins';
     $stmt = sqlsrv_query($conn, $sql);
 
     if ($stmt === false) {
@@ -49,7 +49,7 @@ if ($conn === false) {
         echo "</pre>";
     } else {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        echo "<p>Found " . $row['admin_count'] . " admin(s) in database</p>";
+        echo "<p>Found " . $row['AdminCount'] . " admin(s) in database</p>";
         sqlsrv_free_stmt($stmt);
     }
 

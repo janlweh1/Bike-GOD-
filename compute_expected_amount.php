@@ -35,8 +35,8 @@ if ($rentalId <= 0) {
 }
 
 try {
-    // Get rental start, planned end (respects extensions), rate, and status
-    $stmt = sqlsrv_query($conn, "SELECT r.rental_date, r.rental_time, r.return_date, r.return_time, r.status, b.hourly_rate, r.Rental_ID FROM Rentals r INNER JOIN Bike b ON b.Bike_ID = r.bike_id WHERE r.Rental_ID = ?", [$rentalId]);
+    // Get rental start, planned end (respects extensions), rate, and status via stored procedure
+    $stmt = sqlsrv_query($conn, 'EXEC dbo.sp_GetRentalForExpectedAmount @RentalID = ?', [$rentalId]);
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Rental not found']);
         closeConnection($conn);
@@ -78,13 +78,13 @@ try {
         ));
     }
 
-    // Determine end time: prefer Returns, else payment date/time or now.
+    // Determine end time: prefer Returns (via stored procedure), else payment date/time or now.
     // If the rental has not been returned yet and the payment time is
     // before the planned end, bill up to the planned end to reflect
     // any extensions (same logic as sp_RecordPayment).
     $endDt = null;
     $hasActualReturn = false;
-    $stmtR = sqlsrv_query($conn, "SELECT TOP 1 return_date, return_time FROM Returns WHERE rental_id = ? ORDER BY Return_ID DESC", [$rentalId]);
+    $stmtR = sqlsrv_query($conn, 'EXEC dbo.sp_GetLatestReturnForRental @RentalID = ?', [$rentalId]);
     if ($stmtR && ($rowR = sqlsrv_fetch_array($stmtR, SQLSRV_FETCH_ASSOC))) {
         $rd = $rowR['return_date'];
         $rt = $rowR['return_time'];

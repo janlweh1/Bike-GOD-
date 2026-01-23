@@ -110,11 +110,11 @@ try {
     $hasCompletedPayment = false;
     $payStmt = sqlsrv_query(
         $conn,
-        "SELECT TOP 1 Payment_ID FROM Payments WHERE rental_id = ? AND status = 'completed'",
+        'EXEC dbo.sp_CheckRentalHasCompletedPayment @RentalID = ?',
         [$rentalId]
     );
-    if ($payStmt && sqlsrv_fetch_array($payStmt, SQLSRV_FETCH_ASSOC)) {
-        $hasCompletedPayment = true;
+    if ($payStmt && ($payRow = sqlsrv_fetch_array($payStmt, SQLSRV_FETCH_ASSOC))) {
+        $hasCompletedPayment = !empty($payRow['HasCompletedPayment']);
     }
 
     $extensionRentalId = null;

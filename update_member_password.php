@@ -38,7 +38,7 @@ if (strlen($newPassword) < 8) {
     exit();
 }
 
-$sql = 'SELECT password FROM Member WHERE Member_ID = ?';
+$sql = 'EXEC dbo.sp_GetMemberAuthById @MemberID = ?';
 $stmt = sqlsrv_query($conn, $sql, [$memberId]);
 if ($stmt === false) {
     echo json_encode(['success' => false, 'message' => 'Query failed']);

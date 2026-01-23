@@ -23,18 +23,18 @@ $conn = sqlsrv_connect($serverName, $connectionOptions);
 if ($conn) {
     echo "✅ Database connection successful<br>";
 
-    // Test admin query
-    $sql = "SELECT Admin_ID, username, full_name FROM Admin WHERE username = 'admin'";
-    $stmt = sqlsrv_query($conn, $sql);
+    // Test admin query via stored procedure
+    $sql = "EXEC dbo.sp_GetAdminByUsername @Username = ?";
+    $stmt = sqlsrv_query($conn, $sql, ['admin']);
     if ($stmt && $admin = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         echo "✅ Admin data accessible: " . $admin['full_name'] . "<br>";
     } else {
         echo "❌ Admin data not accessible<br>";
     }
 
-    // Test member query
-    $sql = "SELECT Member_ID, username, first_name, last_name FROM Member WHERE username = 'john_a'";
-    $stmt = sqlsrv_query($conn, $sql);
+    // Test member query via stored procedure
+    $sql = "EXEC dbo.sp_GetMemberByUsername @Username = ?";
+    $stmt = sqlsrv_query($conn, $sql, ['john_a']);
     if ($stmt && $member = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         echo "✅ Member data accessible: " . $member['first_name'] . " " . $member['last_name'] . "<br>";
     } else {

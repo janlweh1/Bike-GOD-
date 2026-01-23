@@ -468,6 +468,18 @@ BEGIN
 END;
 GO
 
+-- Utility: Count admins
+IF OBJECT_ID('dbo.sp_CountAdmins', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CountAdmins;
+GO
+CREATE PROCEDURE dbo.sp_CountAdmins
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) AS AdminCount FROM dbo.Admin;
+END;
+GO
+
 -- Utility: Check if an email is already used by another member
 IF OBJECT_ID('dbo.sp_CheckMemberEmailUnique', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CheckMemberEmailUnique;
@@ -482,6 +494,24 @@ BEGIN
     SELECT COUNT(*) AS Cnt
     FROM dbo.Member
     WHERE email = @Email
+      AND Member_ID <> @MemberID;
+END;
+GO
+
+-- Utility: Check if a username is already used by another member
+IF OBJECT_ID('dbo.sp_CheckMemberUsernameUnique', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CheckMemberUsernameUnique;
+GO
+CREATE PROCEDURE dbo.sp_CheckMemberUsernameUnique
+    @MemberID INT,
+    @Username NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT COUNT(*) AS Cnt
+    FROM dbo.Member
+    WHERE username = @Username
       AND Member_ID <> @MemberID;
 END;
 GO
@@ -1315,10 +1345,22 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validate rental
-    IF NOT EXISTS (SELECT 1 FROM dbo.Rentals WHERE Rental_ID = @RentalId)
+    -- Validate rental and ensure it is not cancelled
+    DECLARE @RentalStatus NVARCHAR(20);
+
+    SELECT @RentalStatus = status
+    FROM dbo.Rentals
+    WHERE Rental_ID = @RentalId;
+
+    IF @RentalStatus IS NULL
     BEGIN
         RAISERROR('Rental not found', 16, 1);
+        RETURN;
+    END
+
+    IF LOWER(LTRIM(RTRIM(ISNULL(@RentalStatus, '')))) = 'cancelled'
+    BEGIN
+        RAISERROR('Cannot record payment for a cancelled rental', 16, 1);
         RETURN;
     END
 
@@ -1542,6 +1584,26 @@ BEGIN
 END;
 GO
 
+-- Member-side: Get basic bike info for rental creation
+IF OBJECT_ID('dbo.sp_GetBikeForRental', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetBikeForRental;
+GO
+CREATE PROCEDURE dbo.sp_GetBikeForRental
+    @BikeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        Bike_ID,
+        admin_id,
+        availability_status,
+        hourly_rate
+    FROM dbo.Bike
+    WHERE Bike_ID = @BikeID;
+END;
+GO
+
 -- Member-side: Get a single rental with bike/admin info for extension
 IF OBJECT_ID('dbo.sp_GetRentalForExtend', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetRentalForExtend;
@@ -1567,6 +1629,49 @@ BEGIN
     INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
     WHERE r.Rental_ID = @RentalID
       AND r.member_id = @MemberID;
+END;
+GO
+
+-- Helper: Get rental header + rate for expected amount calculation
+IF OBJECT_ID('dbo.sp_GetRentalForExpectedAmount', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetRentalForExpectedAmount;
+GO
+CREATE PROCEDURE dbo.sp_GetRentalForExpectedAmount
+    @RentalID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        r.rental_date,
+        r.rental_time,
+        r.return_date,
+        r.return_time,
+        r.status,
+        b.hourly_rate,
+        r.Rental_ID
+    FROM dbo.Rentals r
+    INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
+    WHERE r.Rental_ID = @RentalID;
+END;
+GO
+
+-- Helper: Get latest actual return row for a rental
+IF OBJECT_ID('dbo.sp_GetLatestReturnForRental', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetLatestReturnForRental;
+GO
+CREATE PROCEDURE dbo.sp_GetLatestReturnForRental
+    @RentalID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT TOP 1
+        return_date,
+        return_time
+    FROM dbo.Returns
+    WHERE rental_id = @RentalID
+    ORDER BY Return_ID DESC;
 END;
 GO
 
@@ -1622,6 +1727,32 @@ BEGIN
     END
 
     SELECT @@ROWCOUNT AS RowsAffected;
+END;
+GO
+
+-- Helper: Check if a rental already has a completed payment
+IF OBJECT_ID('dbo.sp_CheckRentalHasCompletedPayment', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CheckRentalHasCompletedPayment;
+GO
+CREATE PROCEDURE dbo.sp_CheckRentalHasCompletedPayment
+    @RentalID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.Payments
+        WHERE rental_id = @RentalID
+          AND status = 'completed'
+    )
+    BEGIN
+        SELECT CAST(1 AS BIT) AS HasCompletedPayment;
+    END
+    ELSE
+    BEGIN
+        SELECT CAST(0 AS BIT) AS HasCompletedPayment;
+    END
 END;
 GO
 
@@ -1844,6 +1975,25 @@ BEGIN
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrMsg, 16, 1);
     END CATCH
+END;
+GO
+
+-- Helper: Get rental status and member for simple checks
+IF OBJECT_ID('dbo.sp_GetRentalStatus', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_GetRentalStatus;
+GO
+CREATE PROCEDURE dbo.sp_GetRentalStatus
+    @RentalID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        Rental_ID,
+        status,
+        member_id
+    FROM dbo.Rentals
+    WHERE Rental_ID = @RentalID;
 END;
 GO
 CREATE PROCEDURE dbo.sp_ListRentalsWithSummary

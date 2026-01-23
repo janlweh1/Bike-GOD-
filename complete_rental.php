@@ -30,8 +30,8 @@ if (!$adminId) {
 }
 
 try {
-    // Basic existence check
-    $stmt = sqlsrv_query($conn, 'SELECT Rental_ID, status FROM Rentals WHERE Rental_ID = ?', [$rentalId]);
+    // Fetch current rental status via stored procedure
+    $stmt = sqlsrv_query($conn, 'EXEC dbo.sp_GetRentalStatus @RentalID = ?', [$rentalId]);
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Rental not found']);
         closeConnection($conn);

@@ -30,8 +30,8 @@ if ($memberId <= 0 || $bikeId <= 0 || $durationHours <= 0 || !$pickupDate || !$p
 }
 
 try {
-    // Validate bike and get admin + rate
-    $stmt = sqlsrv_query($conn, 'SELECT Bike_ID, admin_id, availability_status, hourly_rate FROM Bike WHERE Bike_ID = ?', [$bikeId]);
+    // Validate bike and get admin + rate via stored procedure
+    $stmt = sqlsrv_query($conn, 'EXEC dbo.sp_GetBikeForRental @BikeID = ?', [$bikeId]);
     if ($stmt === false || !($bike = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Bike not found']);
         closeConnection($conn);
@@ -62,23 +62,6 @@ try {
 
     // Start a transaction
     sqlsrv_begin_transaction($conn);
-
-    // Insert rental and return new ID using OUTPUT clause
-    // Insert rental; include planned return_time if column exists.
-    // If the column is missing, attempt to add it on the fly so
-    // durations can be computed accurately in admin views.
-    $hasReturnTimeCol = false;
-    $colStmt = sqlsrv_query($conn, "SELECT 1 AS X FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Rentals' AND COLUMN_NAME = 'return_time'");
-    if ($colStmt && sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
-        $hasReturnTimeCol = true;
-    } else {
-        // Try to run the migration inline if the column is missing
-        $alterSql = "IF COL_LENGTH('Rentals', 'return_time') IS NULL ALTER TABLE Rentals ADD return_time TIME NULL;";
-        $alterStmt = sqlsrv_query($conn, $alterSql);
-        if ($alterStmt) {
-            $hasReturnTimeCol = true;
-        }
-    }
 
     // Create rental and mark bike rented via stored procedure
     $ins = sqlsrv_query(

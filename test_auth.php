@@ -31,8 +31,8 @@ $testCases = [
 foreach ($testCases as $i => $test) {
     echo "Test " . ($i + 1) . ": {$test['input']} / {$test['password']}\n";
 
-    // Check admin by username
-    $sqlAdmin = "SELECT Admin_ID, username, password, full_name, role FROM Admin WHERE username = ?";
+    // Check admin by username via stored procedure
+    $sqlAdmin = "EXEC dbo.sp_GetAdminByUsername @Username = ?";
     $paramsAdmin = array($test['input']);
     $stmtAdmin = sqlsrv_query($conn, $sqlAdmin, $paramsAdmin);
 
@@ -43,16 +43,16 @@ foreach ($testCases as $i => $test) {
             echo "❌ Admin login FAILED - wrong password\n";
         }
     } else {
-        // Check member by username
-        $sqlMemberUsername = "SELECT Member_ID, username, first_name, last_name, email FROM Member WHERE username = ?";
+        // Check member by username via stored procedure
+        $sqlMemberUsername = "EXEC dbo.sp_GetMemberByUsername @Username = ?";
         $paramsMemberUsername = array($test['input']);
         $stmtMemberUsername = sqlsrv_query($conn, $sqlMemberUsername, $paramsMemberUsername);
 
         if ($stmtMemberUsername && $member = sqlsrv_fetch_array($stmtMemberUsername, SQLSRV_FETCH_ASSOC)) {
             echo "🚫 Member login DISABLED (username: {$member['username']})\n";
         } else {
-            // Check member by email
-            $sqlMemberEmail = "SELECT Member_ID, username, first_name, last_name, email FROM Member WHERE email = ?";
+            // Check member by email via stored procedure
+            $sqlMemberEmail = "EXEC dbo.sp_GetMemberByEmail @Email = ?";
             $paramsMemberEmail = array($test['input']);
             $stmtMemberEmail = sqlsrv_query($conn, $sqlMemberEmail, $paramsMemberEmail);
 

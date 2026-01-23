@@ -28,15 +28,15 @@ if ($memberId <= 0 || $firstName === '' || $lastName === '' || $email === '') {
     exit();
 }
 
-// Check email uniqueness (exclude current member)
-$checkStmt = sqlsrv_query($conn, 'SELECT COUNT(*) AS cnt FROM Member WHERE email = ? AND Member_ID <> ?', [$email, $memberId]);
+// Check email uniqueness (exclude current member) via stored procedure
+$checkStmt = sqlsrv_query($conn, 'EXEC dbo.sp_CheckMemberEmailUnique @MemberID = ?, @Email = ?', [$memberId, $email]);
 if ($checkStmt === false) {
     echo json_encode(['success' => false, 'message' => 'Validation query failed']);
     closeConnection($conn);
     exit();
 }
 $cntRow = sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC);
-if ($cntRow && (int)$cntRow['cnt'] > 0) {
+if ($cntRow && (int)$cntRow['Cnt'] > 0) {
     echo json_encode(['success' => false, 'message' => 'Email already in use']);
     closeConnection($conn);
     exit();
