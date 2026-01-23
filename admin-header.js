@@ -113,6 +113,18 @@ function getInitials(fullName) {
         panel.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:600;">Notifications</div><div id="notif-items"></div>';
         document.body.appendChild(panel);
 
+        // Load any stored notifications (latest 8) from localStorage
+        try {
+            const saved = localStorage.getItem('adminNotifQueue');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    notifQueue = parsed;
+                    renderNotifQueue();
+                }
+            }
+        } catch {}
+
         // Toggle panel
         btn.addEventListener('click', () => {
             const visible = panel.style.display === 'block';
@@ -137,26 +149,56 @@ function getInitials(fullName) {
         return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
     }
 
-    function pushNotification(text) {
-        notifQueue.unshift({ text, time: new Date().toLocaleString() });
-        notifQueue = notifQueue.slice(0, 20);
+    function formatRelativeTime(ts) {
+        if (!ts) return '';
+        const now = Date.now();
+        const diffSec = Math.max(0, Math.floor((now - ts * 1000) / 1000));
+        const mins = Math.floor(diffSec / 60);
+        const hours = Math.floor(diffSec / 3600);
+        const days = Math.floor(diffSec / 86400);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return mins + ' minutes ago';
+        if (hours < 24) return hours + ' hours ago';
+        return days + ' days ago';
+    }
+
+    function renderNotifQueue() {
         const items = document.getElementById('notif-items');
-        const badge = document.querySelector('.notification-btn .notif-badge');
-        if (items) {
-            items.innerHTML = notifQueue.map(n => `
-                <div style="padding:10px 12px;border-bottom:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-start;">
-                    <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;margin-top:6px;"></div>
-                    <div>
-                        <div style="font-size:13px;color:#111827;">${escapeHtml(n.text)}</div>
-                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">${escapeHtml(n.time)}</div>
-                    </div>
-                </div>
-            `).join('');
+        if (!items) return;
+        const latest = notifQueue.slice(0, 8);
+        if (latest.length === 0) {
+            items.innerHTML = '<div style="padding:10px 12px;color:#6b7280;">No notifications yet.</div>';
+            return;
         }
+        items.innerHTML = latest.map(n => `
+            <div style="padding:10px 12px;border-bottom:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-start;">
+                <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;margin-top:6px;"></div>
+                <div>
+                    <div style="font-size:13px;color:#111827;">${escapeHtml(n.text)}</div>
+                    <div style="font-size:11px;color:#6b7280;margin-top:4px;">${escapeHtml(n.time || formatRelativeTime(n.ts || n.timestamp || 0))}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function saveNotifQueue() {
+        try {
+            const latest = notifQueue.slice(0, 8);
+            localStorage.setItem('adminNotifQueue', JSON.stringify(latest));
+        } catch {}
+    }
+
+    function pushNotification(text) {
+        const nowTs = Math.floor(Date.now() / 1000);
+        notifQueue.unshift({ text, ts: nowTs });
+        notifQueue = notifQueue.slice(0, 8);
+        renderNotifQueue();
+        const badge = document.querySelector('.notification-btn .notif-badge');
         if (badge) {
             badge.textContent = String((parseInt(badge.textContent || '0', 10) || 0) + 1);
             badge.style.display = 'inline-block';
         }
+        saveNotifQueue();
     }
 
     async function checkNotifications() {
@@ -220,6 +262,16 @@ function getInitials(fullName) {
                     const newPayments = pData.payments.filter(p => (parseInt(p.id || '0', 10) || 0) > notifLastPaymentId);
                     pushNotification(`${newPayments.length} new payment${newPayments.length>1?'s':''} received`);
                     notifLastPaymentId = maxPid;
+                }
+
+                // If there are no in-memory notifications yet, seed from latest activity (up to 8)
+                if (notifQueue.length === 0 && Array.isArray(pData.activity) && pData.activity.length > 0) {
+                    notifQueue = pData.activity.slice(0, 8).map(a => ({
+                        text: a.text,
+                        ts: typeof a.timestamp === 'number' ? a.timestamp : Math.floor(Date.now() / 1000)
+                    }));
+                    renderNotifQueue();
+                    saveNotifQueue();
                 }
             }
         } catch (e) {

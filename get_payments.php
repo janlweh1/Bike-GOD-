@@ -164,6 +164,7 @@ try {
             $act[] = [
                 'text' => $text,
                 'time' => $timeStr,
+                'timestamp' => $ts,
                 'amount' => isset($ra['amount']) ? (float)$ra['amount'] : 0,
                 'status' => $statusA
             ];
