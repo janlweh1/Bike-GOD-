@@ -1729,15 +1729,33 @@ BEGIN
         IF @Action = 'cancel'
             OR (@Action IS NULL AND (@HasStarted = 0 OR @CanCancelWindow = 1))
         BEGIN
+            -- Cancel the rental
             UPDATE dbo.Rentals
             SET status = 'Cancelled'
             WHERE Rental_ID = @RentalID;
 
+            -- Free up the bike
             IF @BikeID IS NOT NULL AND @BikeID > 0
             BEGIN
                 UPDATE dbo.Bike
                 SET availability_status = 'Available'
                 WHERE Bike_ID = @BikeID;
+            END
+
+            -- If the customer has already paid and this cancellation
+            -- is happening within the allowed 5-minute window from the
+            -- start time, mark any completed payment for this rental as
+            -- refundable by changing its status to 'refunded'.
+            --
+            -- Revenue-related procedures only sum rows with
+            -- status = 'completed', so marking a payment as 'refunded'
+            -- removes it from revenue while still keeping the record.
+            IF @CanCancelWindow = 1
+            BEGIN
+                UPDATE dbo.Payments
+                SET status = 'refunded'
+                WHERE rental_id = @RentalID
+                  AND status = 'completed';
             END
 
             COMMIT TRAN;
