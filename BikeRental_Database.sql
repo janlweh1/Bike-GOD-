@@ -1242,8 +1242,9 @@ BEGIN
     -- Compute expected amount when completing payment
     IF LOWER(@Status) = 'completed'
     BEGIN
-        DECLARE @StartDt datetime, @EndDt datetime, @Rate DECIMAL(10,2), @DurationHours INT, @Expected DECIMAL(18,2);
+        DECLARE @StartDt datetime, @EndDt datetime, @PlannedEnd datetime, @Rate DECIMAL(10,2), @DurationHours INT, @Expected DECIMAL(18,2);
 
+        -- Start time + hourly rate
         SELECT 
             @StartDt = CONVERT(datetime, CONCAT(CONVERT(varchar(10), r.rental_date, 120), ' ', CONVERT(varchar(8), r.rental_time, 108))),
             @Rate = CAST(b.hourly_rate AS DECIMAL(10,2))
@@ -1251,13 +1252,35 @@ BEGIN
         INNER JOIN dbo.Bike b ON b.Bike_ID = r.bike_id
         WHERE r.Rental_ID = @RentalId;
 
-        -- Prefer actual return; fallback to payment datetime
+        -- Planned end from Rentals (reflects any extensions)
+        IF COL_LENGTH('dbo.Rentals','return_time') IS NOT NULL
+        BEGIN
+            SELECT @PlannedEnd = CONVERT(datetime, CONCAT(CONVERT(varchar(10), r.return_date, 120), ' ', CONVERT(varchar(8), r.return_time, 108)))
+            FROM dbo.Rentals r
+            WHERE r.Rental_ID = @RentalId;
+        END
+        ELSE
+        BEGIN
+            SELECT @PlannedEnd = CONVERT(datetime, CONCAT(CONVERT(varchar(10), r.return_date, 120), ' ', CONVERT(varchar(8), r.rental_time, 108)))
+            FROM dbo.Rentals r
+            WHERE r.Rental_ID = @RentalId;
+        END
+
+        -- Prefer actual return; if not returned yet, bill at least up to
+        -- the planned end (including any extensions). If paying after the
+        -- planned end, fall back to the actual payment datetime.
         SELECT TOP 1 @EndDt = CONVERT(datetime, CONCAT(CONVERT(varchar(10), x.return_date, 120), ' ', CONVERT(varchar(8), x.return_time, 108)))
         FROM dbo.Returns x
         WHERE x.rental_id = @RentalId
         ORDER BY x.Return_ID DESC;
 
-        IF @EndDt IS NULL SET @EndDt = @PaymentDt;
+        IF @EndDt IS NULL
+        BEGIN
+            IF @PlannedEnd IS NOT NULL AND @PaymentDt < @PlannedEnd
+                SET @EndDt = @PlannedEnd;
+            ELSE
+                SET @EndDt = @PaymentDt;
+        END
 
         SET @DurationHours = NULLIF(DATEDIFF(HOUR, @StartDt, @EndDt), 0);
         IF @DurationHours IS NULL OR @DurationHours < 1 SET @DurationHours = 1;

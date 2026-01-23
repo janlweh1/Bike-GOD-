@@ -337,6 +337,9 @@ function endRental(rentalId) {
         const bikeNameEl = document.getElementById('endChoiceBikeName');
         const timeRowEl = document.getElementById('endChoiceTimeRow');
         const timeRemainingEl = document.getElementById('endChoiceTimeRemaining');
+        const keepBtn = document.getElementById('keepRidingBtn');
+        const cancelBtn = document.getElementById('cancelRentalBtn');
+        const completeBtn = document.getElementById('completeRentalBtn');
 
         if (!modal) {
             console.error('endChoiceModal element not found');
@@ -345,18 +348,24 @@ function endRental(rentalId) {
 
         bikeNameEl.textContent = rental.name;
 
-        const cancelBtn = document.getElementById('cancelRentalBtn');
-
         if (!rentalStarted) {
             // Future booking that hasn't started yet → simple cancel modal
             titleEl.textContent = 'Cancel Rental';
             subtitleEl.textContent = 'This rental has not started yet. You can cancel it with no ride time used.';
             if (timeRowEl) timeRowEl.style.display = 'none';
             pendingEndAction = 'cancel';
+            // Only show cancel button; hide end-ride and keep-riding buttons
             if (cancelBtn) {
                 cancelBtn.disabled = false;
                 cancelBtn.style.opacity = '';
                 cancelBtn.style.cursor = '';
+                cancelBtn.style.display = '';
+            }
+            if (keepBtn) {
+                keepBtn.style.display = 'none';
+            }
+            if (completeBtn) {
+                completeBtn.style.display = 'none';
             }
         } else if (isEarly) {
             // Rental already started but still has remaining time → show remaining
@@ -366,6 +375,11 @@ function endRental(rentalId) {
             const minutes = Math.floor((remainingSeconds % 3600) / 60);
             const seconds = remainingSeconds % 60;
             timeRemainingEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).toString().padStart(2, '0')}`;
+
+            // Ensure all buttons are visible by default for started rentals
+            if (keepBtn) keepBtn.style.display = '';
+            if (completeBtn) completeBtn.style.display = '';
+            if (cancelBtn) cancelBtn.style.display = '';
 
             if (elapsedSeconds <= 300) {
                 // Within 5-minute window: allow true cancellation without fee
@@ -396,7 +410,10 @@ function endRental(rentalId) {
                 cancelBtn.disabled = true;
                 cancelBtn.style.opacity = '0.5';
                 cancelBtn.style.cursor = 'not-allowed';
+                cancelBtn.style.display = '';
             }
+            if (keepBtn) keepBtn.style.display = '';
+            if (completeBtn) completeBtn.style.display = '';
         }
 
         modal.classList.add('active');
@@ -448,6 +465,11 @@ function submitEndRental(actionOverride) {
                     actualDuration: rental.duration,
                     status: finalStatus
                 };
+                    // Ensure cancelled rentals do not contribute any cost
+                    if (finalStatus === 'cancelled') {
+                        completedRental.cost = 0;
+                        completedRental.actualDuration = 0;
+                    }
 
                 rentalHistory.unshift(completedRental);
                 localStorage.setItem('rentalHistory', JSON.stringify(rentalHistory));

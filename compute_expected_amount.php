@@ -35,8 +35,8 @@ if ($rentalId <= 0) {
 }
 
 try {
-    // Get rental start, rate, and status
-    $stmt = sqlsrv_query($conn, "SELECT r.rental_date, r.rental_time, r.status, b.hourly_rate, r.Rental_ID FROM Rentals r INNER JOIN Bike b ON b.Bike_ID = r.bike_id WHERE r.Rental_ID = ?", [$rentalId]);
+    // Get rental start, planned end (respects extensions), rate, and status
+    $stmt = sqlsrv_query($conn, "SELECT r.rental_date, r.rental_time, r.return_date, r.return_time, r.status, b.hourly_rate, r.Rental_ID FROM Rentals r INNER JOIN Bike b ON b.Bike_ID = r.bike_id WHERE r.Rental_ID = ?", [$rentalId]);
     if ($stmt === false || !($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC))) {
         echo json_encode(['success' => false, 'message' => 'Rental not found']);
         closeConnection($conn);
@@ -45,6 +45,8 @@ try {
 
     $startDate = $row['rental_date'];
     $startTime = $row['rental_time'];
+    $plannedReturnDate = $row['return_date'] ?? null;
+    $plannedReturnTime = $row['return_time'] ?? null;
     $statusDb = strtolower((string)($row['status'] ?? ''));
     $rate = isset($row['hourly_rate']) ? (float)$row['hourly_rate'] : 0.0;
 
@@ -68,23 +70,40 @@ try {
         $startDt = new DateTime($startDate->format('Y-m-d') . ' ' . ($startTime instanceof DateTime ? $startTime->format('H:i:s') : '00:00:00'));
     }
 
-    // Determine end time: prefer Returns, else provided payment date/time, else now
+    // Planned end from Rentals (supports extensions)
+    $plannedEnd = null;
+    if ($plannedReturnDate instanceof DateTime) {
+        $plannedEnd = new DateTime($plannedReturnDate->format('Y-m-d') . ' ' . (
+            $plannedReturnTime instanceof DateTime ? $plannedReturnTime->format('H:i:s') : ($startTime instanceof DateTime ? $startTime->format('H:i:s') : '00:00:00')
+        ));
+    }
+
+    // Determine end time: prefer Returns, else payment date/time or now.
+    // If the rental has not been returned yet and the payment time is
+    // before the planned end, bill up to the planned end to reflect
+    // any extensions (same logic as sp_RecordPayment).
     $endDt = null;
+    $hasActualReturn = false;
     $stmtR = sqlsrv_query($conn, "SELECT TOP 1 return_date, return_time FROM Returns WHERE rental_id = ? ORDER BY Return_ID DESC", [$rentalId]);
     if ($stmtR && ($rowR = sqlsrv_fetch_array($stmtR, SQLSRV_FETCH_ASSOC))) {
         $rd = $rowR['return_date'];
         $rt = $rowR['return_time'];
         if ($rd instanceof DateTime) {
             $endDt = new DateTime($rd->format('Y-m-d') . ' ' . ($rt instanceof DateTime ? $rt->format('H:i:s') : '00:00:00'));
+            $hasActualReturn = true;
         }
     }
 
-    if ($endDt === null) {
+    if (!$hasActualReturn) {
         if ($paymentDate !== '' && $paymentTime !== '') {
             $endDt = DateTime::createFromFormat('Y-m-d H:i', $paymentDate . ' ' . $paymentTime);
         }
         if (!$endDt) {
             $endDt = new DateTime('now');
+        }
+
+        if ($plannedEnd && $endDt < $plannedEnd) {
+            $endDt = $plannedEnd;
         }
     }
 
