@@ -164,7 +164,6 @@
             const bikeCards = document.querySelectorAll('.bike-card');
             
             bikeCards.forEach(card => {
-                const bikeName = card.querySelector('h3').textContent.toLowerCase();
                 const bikeType = card.querySelector('.bike-type').textContent.toLowerCase();
                 
                 if (bikeName.includes(searchTerm) || bikeType.includes(searchTerm)) {

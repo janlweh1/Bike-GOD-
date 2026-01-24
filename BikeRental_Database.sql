@@ -162,7 +162,9 @@ GO
 -- Login Procedures
 -- =============================================
 
--- Get admin by username for login
+-- Get admin by username for login.
+-- Used by the admin login flow to fetch the matching admin row
+-- (including hashed password and role) for a given username.
 CREATE PROCEDURE sp_GetAdminByUsername
     @Username NVARCHAR(50)
 AS
@@ -173,7 +175,9 @@ BEGIN
 END;
 GO
 
--- Get member by username for login
+-- Get member by username for login.
+-- Used by the member login flow when logging in with username
+-- to retrieve the member row and hashed password.
 CREATE PROCEDURE sp_GetMemberByUsername
     @Username NVARCHAR(50)
 AS
@@ -184,7 +188,9 @@ BEGIN
 END;
 GO
 
--- Get member by email for login
+-- Get member by email for login.
+-- Used by the member login flow when logging in with email
+-- to retrieve the member row and hashed password.
 CREATE PROCEDURE sp_GetMemberByEmail
     @Email NVARCHAR(100)
 AS
@@ -199,7 +205,9 @@ GO
 -- Profile Procedures
 -- =============================================
 
--- Get admin profile by ID
+-- Get admin profile by ID.
+-- Returns display-safe profile fields for the admin settings/profile pages
+-- based on the numeric Admin_ID from the session.
 CREATE PROCEDURE sp_GetAdminProfile
     @AdminID INT
 AS
@@ -210,7 +218,9 @@ BEGIN
 END;
 GO
 
--- Update admin profile (username, full_name)
+-- Update admin profile (username, full_name, email).
+-- Called from the admin profile UI to change basic identity fields
+-- without touching sensitive fields like password.
 CREATE PROCEDURE sp_UpdateAdminProfile
     @AdminID INT,
     @Username NVARCHAR(50),
@@ -224,7 +234,9 @@ BEGIN
 END;
 GO
 
--- Get member profile by ID
+-- Get member profile by ID.
+-- Returns all member-facing profile fields used on the customer profile
+-- and "My Account" pages, including contact info and photo.
 CREATE PROCEDURE sp_GetMemberProfile
     @MemberID INT
 AS
@@ -235,7 +247,9 @@ BEGIN
 END;
 GO
 
--- Get member auth info by ID (email + password hash)
+-- Get member auth info by ID (email + password hash).
+-- Helper used by server-side password/email update flows to re‑validate
+-- credentials when the Member_ID is already known.
 IF OBJECT_ID('dbo.sp_GetMemberAuthById', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetMemberAuthById;
 GO
@@ -255,7 +269,9 @@ GO
 -- Statistics Procedures
 -- =============================================
 
--- Get admin statistics
+-- Get admin statistics.
+-- Aggregates high-level counts (bikes, active rentals, members) used by
+-- the admin dashboard summary cards.
 CREATE PROCEDURE sp_GetAdminStats
 AS
 BEGIN
@@ -266,7 +282,9 @@ BEGIN
 END;
 GO
 
--- Get member statistics
+-- Get member statistics for a specific member.
+-- Returns total rentals and currently active rentals for one member,
+-- driving the small stats section on the customer home/profile pages.
 CREATE PROCEDURE sp_GetMemberStats
     @MemberID INT
 AS
@@ -278,7 +296,9 @@ BEGIN
 END;
 GO
 
--- Register new member
+-- Register new member.
+-- Validates that username and email are unique, then inserts a new
+-- Member row and returns the new Member_ID used by the app session.
 CREATE PROCEDURE sp_RegisterMember
     @Username NVARCHAR(50),
     @FirstName NVARCHAR(50),
@@ -313,7 +333,9 @@ BEGIN
 END;
 GO
 
--- Utility: List basic member info
+-- Utility: List basic member info.
+-- Simple helper to list members with key fields for admin grids
+-- or debugging tools; does not include sensitive data.
 CREATE PROCEDURE sp_ListMembersBasic
 AS
 BEGIN
@@ -324,7 +346,9 @@ BEGIN
 END;
 GO
 
--- Utility: Update a member's username
+-- Utility: Update a member's username.
+-- Small helper to change the username only, typically used by admin
+-- maintenance tools or migration scripts.
 CREATE PROCEDURE sp_UpdateMemberUsername
     @MemberID INT,
     @Username NVARCHAR(50)
@@ -335,7 +359,9 @@ BEGIN
 END;
 GO
 
--- Admin: Update basic member fields
+-- Admin: Update basic member fields.
+-- Allows admins to edit a member's name, email and phone number in
+-- one operation from the admin "Edit Member" UI.
 IF OBJECT_ID('dbo.sp_UpdateMemberBasic', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateMemberBasic;
 GO
@@ -359,7 +385,9 @@ BEGIN
 END;
 GO
 
--- Member-side: List rentals for a given member with bike info
+-- Member-side: List rentals for a given member with bike info.
+-- Feeds the "My Rentals" page by returning each rental together with
+-- the associated bike details for a specific member.
 IF OBJECT_ID('dbo.sp_GetMemberRentals', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetMemberRentals;
 GO
@@ -386,7 +414,9 @@ BEGIN
 END;
 GO
 
--- Self-service: Update full member profile
+-- Self-service: Update full member profile.
+-- Used by members to update their own profile fields; only non‑NULL
+-- parameters override existing values so partial updates are supported.
 IF OBJECT_ID('dbo.sp_UpdateMemberProfile', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateMemberProfile;
 GO
@@ -415,7 +445,9 @@ BEGIN
 END;
 GO
 
--- Self-service: Update member email only
+-- Self-service: Update member email only.
+-- Lightweight helper for the "change email" workflow; updates just
+-- the email column and returns how many rows were affected.
 IF OBJECT_ID('dbo.sp_UpdateMemberEmail', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateMemberEmail;
 GO
@@ -430,7 +462,9 @@ BEGIN
 END;
 GO
 
--- Self-service: Update member password hash
+-- Self-service: Update member password hash.
+-- Called after the new password has already been hashed in the app;
+-- stores the hash and reports how many rows were updated.
 IF OBJECT_ID('dbo.sp_UpdateMemberPassword', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateMemberPassword;
 GO
@@ -445,7 +479,9 @@ BEGIN
 END;
 GO
 
--- Self-service: Update member photo URL
+-- Self-service: Update member photo URL.
+-- Used by profile photo upload endpoints to persist the image URL for
+-- a member, without changing any other profile fields.
 IF OBJECT_ID(N'dbo.sp_UpdateMemberPhotoUrl', N'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateMemberPhotoUrl;
 GO
@@ -459,7 +495,9 @@ BEGIN
 END;
 GO
 
--- Utility: Count members
+-- Utility: Count members.
+-- Returns a single integer used anywhere a total member count is needed
+-- (dashboards, health checks, or monitoring).
 CREATE PROCEDURE sp_CountMembers
 AS
 BEGIN
@@ -468,7 +506,9 @@ BEGIN
 END;
 GO
 
--- Utility: Count admins
+-- Utility: Count admins.
+-- Returns the number of admin accounts configured in the system,
+-- mainly for diagnostics or admin dashboards.
 IF OBJECT_ID('dbo.sp_CountAdmins', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CountAdmins;
 GO
@@ -480,7 +520,9 @@ BEGIN
 END;
 GO
 
--- Utility: Check if an email is already used by another member
+-- Utility: Check if an email is already used by another member.
+-- Supports email uniqueness validation by counting how many *other*
+-- members (excluding the current Member_ID) already use that email.
 IF OBJECT_ID('dbo.sp_CheckMemberEmailUnique', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CheckMemberEmailUnique;
 GO
@@ -498,7 +540,9 @@ BEGIN
 END;
 GO
 
--- Utility: Check if a username is already used by another member
+-- Utility: Check if a username is already used by another member.
+-- Similar to the email check; helps client code decide whether a
+-- username is available when editing or registering.
 IF OBJECT_ID('dbo.sp_CheckMemberUsernameUnique', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CheckMemberUsernameUnique;
 GO
@@ -516,7 +560,9 @@ BEGIN
 END;
 GO
 
--- Utility: Get top 3 members (basic info)
+-- Utility: Get top 3 members (basic info).
+-- Convenience query to pull a few sample members (first 3 by ID),
+-- often used for testing or simple summary displays.
 CREATE PROCEDURE sp_GetTopMembersEmails
 AS
 BEGIN
@@ -525,7 +571,9 @@ BEGIN
 END;
 GO
 
--- Admin: Get members with stats
+-- Admin: Get members with stats.
+-- Returns each member along with derived statistics such as total
+-- rentals, active rentals, and total amount spent (from Payments).
 CREATE PROCEDURE sp_GetMembersWithStats
 AS
 BEGIN
@@ -556,7 +604,9 @@ BEGIN
 END;
 GO
 
--- Admin: Delete member only if no rentals exist
+-- Admin: Delete member only if no rentals exist.
+-- Safety wrapper that blocks deletion if the member has any Rentals,
+-- preventing orphaned rental records.
 IF OBJECT_ID('dbo.sp_DeleteMemberIfNoRentals', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_DeleteMemberIfNoRentals;
 GO
@@ -577,7 +627,9 @@ BEGIN
 END;
 GO
 
--- Admin: Count members joined in current month
+-- Admin: Count members joined in current month.
+-- Used by admin analytics to show how many new sign‑ups occurred in
+-- the same calendar month as today.
 CREATE PROCEDURE sp_CountMembersNewThisMonth
 AS
 BEGIN
@@ -588,7 +640,9 @@ BEGIN
 END;
 GO
 
--- Admin: Count members joined in current ISO week
+-- Admin: Count members joined in current ISO week.
+-- Counts members whose join date falls in the current ISO week/year,
+-- giving a week‑over‑week growth indicator.
 CREATE PROCEDURE sp_CountMembersNewThisWeek
 AS
 BEGIN
@@ -600,7 +654,9 @@ BEGIN
 END;
 GO
 
--- Admin: Count members joined in previous month
+-- Admin: Count members joined in previous month.
+-- Same as the current‑month count but for the previous calendar month,
+-- used for simple month‑over‑month comparisons.
 CREATE PROCEDURE sp_CountMembersPrevMonth
 AS
 BEGIN
@@ -612,7 +668,9 @@ BEGIN
 END;
 GO
 
--- Admin: Count members with at least one active/ongoing rental
+-- Admin: Count members with at least one active/ongoing rental.
+-- Returns the number of distinct members who currently have rentals
+-- in a Pending or Active state.
 CREATE PROCEDURE sp_CountActiveRentalMembers
 AS
 BEGIN
@@ -627,7 +685,9 @@ GO
 -- Admin Security Procedures
 -- =============================================
 
--- Get admin auth info by ID (returns password for verification)
+-- Get admin auth info by ID (returns password for verification).
+-- Low-level helper used anywhere the system needs to re‑check an
+-- admin's credentials (e.g., changing sensitive settings).
 CREATE PROCEDURE sp_GetAdminAuthById
     @AdminID INT
 AS
@@ -636,7 +696,9 @@ BEGIN
 END;
 GO
 
--- Update admin password
+-- Update admin password.
+-- Stores a new (already hashed) password for an admin account; does
+-- not perform the hashing itself.
 CREATE PROCEDURE sp_UpdateAdminPassword
     @AdminID INT,
     @Password NVARCHAR(255)
@@ -651,7 +713,9 @@ GO
 -- Pricing Procedures
 -- =============================================
 
--- Get average rates grouped by bike type
+-- Get average rates grouped by bike type.
+-- Aggregates hourly_rate per bike_type so the admin UI can show
+-- typical pricing for each category.
 CREATE PROCEDURE sp_GetRatesByType
 AS
 BEGIN
@@ -662,7 +726,9 @@ BEGIN
 END;
 GO
 
--- Update rate by bike type
+-- Update rate by bike type.
+-- Bulk update used when the admin wants to standardize the hourly
+-- rate for all bikes in a specific category.
 CREATE PROCEDURE sp_UpdateRateByType
     @BikeType NVARCHAR(50),
     @Rate DECIMAL(10,2)
@@ -677,7 +743,9 @@ GO
 -- Pricing: Per-Bike Procedures
 -- =============================================
 
--- List bikes with hourly rates
+-- List bikes with hourly rates.
+-- Simple listing of bikes and their pricing, usually feeding the
+-- pricing configuration views or reports.
 CREATE PROCEDURE sp_ListBikesRates
 AS
 BEGIN
@@ -688,7 +756,9 @@ BEGIN
 END;
 GO
 
--- Update a single bike's hourly rate
+-- Update a single bike's hourly rate.
+-- Fine‑grained adjustment for one bike, as opposed to updating by
+-- bike type.
 CREATE PROCEDURE sp_UpdateBikeRate
     @BikeID INT,
     @Rate DECIMAL(10,2)
@@ -902,7 +972,9 @@ BEGIN
 END
 GO
 
--- Get General Settings
+-- Get General Settings.
+-- Returns the latest row from GeneralSettings, which controls global
+-- system behavior like language, timezone, and rental limits.
 IF OBJECT_ID('dbo.sp_GetGeneralSettings', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetGeneralSettings;
 GO
@@ -928,7 +1000,9 @@ BEGIN
 END;
 GO
 
--- Update General Settings
+-- Update General Settings.
+-- Upserts the single configuration row used for global options such
+-- as time zone, currency, and rental policy flags.
 IF OBJECT_ID('dbo.sp_UpdateGeneralSettings', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateGeneralSettings;
 GO
@@ -1005,7 +1079,9 @@ BEGIN
 END
 GO
 
--- Get Business Info
+-- Get Business Info.
+-- Returns the latest BusinessInfo row used for displaying company
+-- details (name, address, contact) on the public and admin pages.
 IF OBJECT_ID('dbo.sp_GetBusinessInfo', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetBusinessInfo;
 GO
@@ -1060,7 +1136,9 @@ BEGIN
 END
 GO
 
--- 2) Update sp_ListBikes to include condition
+-- 2) Update sp_ListBikes to include condition.
+-- This version of sp_ListBikes returns condition and photo_url to
+-- support richer bike listings in the admin UI.
 IF OBJECT_ID('dbo.sp_ListBikes', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ListBikes;
 GO
@@ -1080,7 +1158,9 @@ BEGIN
 END;
 GO
 
--- 3) Update sp_AddBike to accept optional @Condition
+-- 3) Update sp_AddBike to accept optional @Condition.
+-- Allows seeding the bike_condition when creating a bike; defaults
+-- to 'Excellent' if no condition is specified.
 IF OBJECT_ID('dbo.sp_AddBike', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_AddBike;
 GO
@@ -1101,7 +1181,9 @@ BEGIN
 END;
 GO
 
--- 4) Update sp_UpdateBike to allow updating condition
+-- 4) Update sp_UpdateBike to allow updating condition.
+-- Extends the existing bike update logic so that bike_condition can
+-- also be modified without having to touch other columns.
 IF OBJECT_ID('dbo.sp_UpdateBike', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateBike;
 GO
@@ -1133,7 +1215,9 @@ GO
 USE BikeRental;
 GO
 
--- List bikes with availability and hourly rate
+-- List bikes with availability and hourly rate.
+-- Main bike listing used across admin screens; shows core status and
+-- pricing information for every bike.
 IF OBJECT_ID('dbo.sp_ListBikes', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ListBikes;
 GO
@@ -1152,7 +1236,9 @@ BEGIN
 END;
 GO
 
--- Add a bike and return new ID
+-- Add a bike and return new ID.
+-- Inserts a new Bike row from admin input and returns the generated
+-- Bike_ID so the UI can continue working with that record.
 IF OBJECT_ID('dbo.sp_AddBike', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_AddBike;
 GO
@@ -1172,7 +1258,9 @@ BEGIN
 END;
 GO
 
--- Update a bike; only fields provided (non-NULL) will be updated
+-- Update a bike; only fields provided (non-NULL) will be updated.
+-- Flexible update routine where NULL parameters mean "leave this
+-- column unchanged", ideal for partial edits from admin forms.
 IF OBJECT_ID('dbo.sp_UpdateBike', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateBike;
 GO
@@ -1199,7 +1287,9 @@ BEGIN
 END;
 GO
 
--- Delete a bike (will fail if referenced by Rentals)
+-- Delete a bike (will fail if referenced by Rentals).
+-- Hard‑delete operation that will fail with an FK error when rentals
+-- still reference the bike; use the cascade version to clean up.
 IF OBJECT_ID('dbo.sp_DeleteBike', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_DeleteBike;
 GO
@@ -1213,7 +1303,9 @@ BEGIN
 END;
 GO
 
--- Cascade delete: Returns -> Rentals -> Bike
+-- Cascade delete: Returns -> Rentals -> Bike.
+-- Carefully deletes child Returns, then Rentals, then the Bike itself
+-- so admins can remove bikes that have historical rentals.
 IF OBJECT_ID('dbo.sp_DeleteBikeCascade', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_DeleteBikeCascade;
 GO
@@ -1239,7 +1331,9 @@ BEGIN
 END;
 GO
 
--- Update bike photo URL separately
+-- Update bike photo URL separately.
+-- Small helper called after an image upload to attach a photo_url to
+-- an existing Bike without modifying other attributes.
 IF OBJECT_ID('dbo.sp_UpdateBikePhoto', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateBikePhoto;
 GO
@@ -1329,7 +1423,11 @@ BEGIN
 END
 GO
 
--- Stored Procedure: Record Payment
+-- Stored Procedure: Record Payment.
+-- Central entry point for recording a payment against a rental.
+-- Validates rental status, date formats, uniqueness of transaction_id,
+-- and (for completed payments) that the amount matches the expected
+-- rental cost based on duration and hourly rate.
 IF OBJECT_ID('dbo.sp_RecordPayment', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_RecordPayment;
 GO
@@ -1461,7 +1559,10 @@ BEGIN
 END;
 GO
 
--- Stored Procedure: Create a pending payment entry specifically for rental extensions
+-- Stored Procedure: Create a pending payment entry specifically for rental extensions.
+-- Creates an extra pending payment row when a member extends an
+-- existing rental; generates a unique extension transaction ID and
+-- associates it with the original rental.
 IF OBJECT_ID('dbo.sp_CreateExtensionPendingPayment', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CreateExtensionPendingPayment;
 GO
@@ -1584,7 +1685,9 @@ BEGIN
 END;
 GO
 
--- Member-side: Get basic bike info for rental creation
+-- Member-side: Get basic bike info for rental creation.
+-- Lightweight lookup used when the member chooses a bike to rent;
+-- returns just the fields needed to show availability and pricing.
 IF OBJECT_ID('dbo.sp_GetBikeForRental', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetBikeForRental;
 GO
@@ -1604,7 +1707,9 @@ BEGIN
 END;
 GO
 
--- Member-side: Get a single rental with bike/admin info for extension
+-- Member-side: Get a single rental with bike/admin info for extension.
+-- Used by the "extend rental" flow to validate ownership and load
+-- the current rental's timing and hourly rate.
 IF OBJECT_ID('dbo.sp_GetRentalForExtend', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetRentalForExtend;
 GO
@@ -1632,7 +1737,9 @@ BEGIN
 END;
 GO
 
--- Helper: Get rental header + rate for expected amount calculation
+-- Helper: Get rental header + rate for expected amount calculation.
+-- Shared helper that exposes the key date/time and rate fields used
+-- to recompute expected charges on a rental.
 IF OBJECT_ID('dbo.sp_GetRentalForExpectedAmount', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetRentalForExpectedAmount;
 GO
@@ -1656,7 +1763,9 @@ BEGIN
 END;
 GO
 
--- Helper: Get latest actual return row for a rental
+-- Helper: Get latest actual return row for a rental.
+-- Looks up the most recent Returns entry for a rental, which is used
+-- when calculating actual duration and charges.
 IF OBJECT_ID('dbo.sp_GetLatestReturnForRental', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetLatestReturnForRental;
 GO
@@ -1675,7 +1784,9 @@ BEGIN
 END;
 GO
 
--- Admin-side: Get basic rental info with member and bike details
+-- Admin-side: Get basic rental info with member and bike details.
+-- Provides a compact summary of a single rental for admin detail
+-- views, combining member and bike information.
 IF OBJECT_ID('dbo.sp_GetRentalInfoAdmin', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_GetRentalInfoAdmin;
 GO
@@ -1699,7 +1810,9 @@ BEGIN
 END;
 GO
 
--- Self-service: Extend rental planned return
+-- Self-service: Extend rental planned return.
+-- Lets a member move the planned return date/time for an existing
+-- rental, respecting whether the return_time column exists.
 IF OBJECT_ID('dbo.sp_ExtendRental', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ExtendRental;
 GO
@@ -1730,7 +1843,9 @@ BEGIN
 END;
 GO
 
--- Helper: Check if a rental already has a completed payment
+-- Helper: Check if a rental already has a completed payment.
+-- Returns a BIT flag (HasCompletedPayment) so calling code can decide
+-- whether to allow new completed payments for a rental.
 IF OBJECT_ID('dbo.sp_CheckRentalHasCompletedPayment', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CheckRentalHasCompletedPayment;
 GO
